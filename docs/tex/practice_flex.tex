@@ -1,0 +1,357 @@
+\documentclass{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{array}
+\usepackage{geometry}
+\usepackage{enumitem}
+
+\geometry{margin=2.5cm}
+
+\begin{document}
+
+\section{Guía de comprensión de Flex}
+
+Esta guía tiene como objetivo comprobar la comprensión del funcionamiento
+básico de Flex. Las preguntas deben responderse con palabras propias,
+utilizando ejemplos cuando sea necesario.
+
+\subsection{Función de Flex}
+
+\begin{enumerate}
+    \item ¿Qué problema resuelve Flex dentro de un compilador?
+
+    \item ¿Qué recibe como entrada Flex?
+
+    \item ¿Qué produce como resultado?
+
+    \item ¿Cuál es la diferencia entre lo que hace Flex y lo que hará
+    posteriormente Bison?
+\end{enumerate}
+
+\subsection{Lexemas y tokens}
+
+\begin{enumerate}
+    \item ¿Qué es un lexema?
+
+    \item ¿Qué es un token?
+
+    \item Explicar con un ejemplo la diferencia entre ambos.
+
+    Por ejemplo, para:
+
+\begin{verbatim}
+int edad = 123;
+\end{verbatim}
+
+    identificar los lexemas:
+
+\begin{verbatim}
+int
+edad
+=
+123
+;
+\end{verbatim}
+
+    y asignarles sus respectivos tokens.
+
+    \item ¿Se puede decir que un token es una clasificación del lexema?
+    Explicar por qué.
+\end{enumerate}
+
+\subsection{Patrones}
+
+Considérense las siguientes reglas:
+
+\begin{verbatim}
+"int"                         { return INT; }
+[0-9]+                        { return NUMERO; }
+[a-zA-Z_][a-zA-Z0-9_]*        { return IDENTIFICADOR; }
+"+"                           { return SUMA; }
+\end{verbatim}
+
+\begin{enumerate}
+    \item ¿Qué es cada parte de una regla como:
+
+\begin{verbatim}
+[0-9]+ { return NUMERO; }
+\end{verbatim}
+
+    Especificar qué representa:
+
+\begin{verbatim}
+[0-9]+
+return NUMERO
+\end{verbatim}
+
+    \item ¿Qué relación existe entre un patrón y un lexema?
+
+    \item ¿Flex busca palabras concretas o patrones que puedan reconocer
+    partes de la entrada?
+\end{enumerate}
+
+\subsection{Cómo encuentra un emparejamiento}
+
+Considérense las reglas:
+
+\begin{verbatim}
+[0-9]     { return DIGITO; }
+[0-9]+    { return NUMERO; }
+\end{verbatim}
+
+y la entrada:
+
+\begin{verbatim}
+1234 + 5
+\end{verbatim}
+
+\begin{enumerate}
+    \item Cuando Flex está en el primer carácter, ¿qué intenta hacer?
+
+    \item ¿Qué coincidencias puede encontrar?
+
+    \item ¿Por qué no devuelve inmediatamente el primer carácter
+    reconocido?
+
+    \item ¿Qué significa que Flex busque el emparejamiento más largo?
+
+    \item ¿Qué lexema termina reconociendo?
+
+    \item ¿Qué ocurre con la posición de análisis después de reconocerlo?
+\end{enumerate}
+
+\subsection{Maximal munch}
+
+Explicar con palabras propias qué significa el principio de
+\textit{emparejamiento más largo} o \textit{maximal munch}.
+
+Considérense las reglas:
+
+\begin{verbatim}
+"="      { return ASIGNACION; }
+"=="     { return IGUALDAD; }
+\end{verbatim}
+
+y la entrada:
+
+\begin{verbatim}
+==
+\end{verbatim}
+
+\begin{enumerate}
+    \item ¿Qué patrones coinciden?
+
+    \item ¿Cuál gana?
+
+    \item ¿Por qué?
+\end{enumerate}
+
+\subsection{Empates entre patrones}
+
+Considérense las reglas:
+
+\begin{verbatim}
+"if"    { return IF; }
+[a-z]+  { return IDENTIFICADOR; }
+\end{verbatim}
+
+y la entrada:
+
+\begin{verbatim}
+if
+\end{verbatim}
+
+\begin{enumerate}
+    \item ¿Qué reglas coinciden?
+
+    \item ¿Qué longitud tiene cada emparejamiento?
+
+    \item ¿Cuál gana?
+
+    \item ¿Qué ocurre cuando dos reglas producen un emparejamiento de
+    la misma longitud?
+
+    \item ¿Qué cambiaría si se invirtiera el orden de las reglas?
+\end{enumerate}
+
+\subsection{\texttt{yytext}}
+
+\begin{enumerate}
+    \item ¿Qué es \texttt{yytext}?
+
+    \item Si Flex reconoce:
+
+\begin{verbatim}
+1234
+\end{verbatim}
+
+    ¿qué contiene \texttt{yytext}?
+
+    \item Si posteriormente reconoce:
+
+\begin{verbatim}
++
+\end{verbatim}
+
+    ¿qué contiene \texttt{yytext}?
+
+    \item ¿\texttt{yytext} almacena todos los lexemas encontrados
+    anteriormente?
+
+    \item ¿Para qué podría ser útil \texttt{yytext} en un compilador?
+    Considerar especialmente números, identificadores y errores léxicos.
+\end{enumerate}
+
+\subsection{\texttt{yyleng}}
+
+\begin{enumerate}
+    \item ¿Qué contiene \texttt{yyleng}?
+
+    \item Si:
+
+\begin{verbatim}
+yytext = "1234"
+\end{verbatim}
+
+    ¿cuánto vale \texttt{yyleng}?
+
+    \item ¿Cuál es la diferencia entre:
+
+\begin{verbatim}
+yytext
+yyleng
+yylex()
+\end{verbatim}
+\end{enumerate}
+
+\subsection{\texttt{yylex()}}
+
+\begin{enumerate}
+    \item ¿Qué hace \texttt{yylex()}?
+
+    \item ¿Qué devuelve?
+
+    \item ¿Cuál es la diferencia entre \texttt{yytext},
+    \texttt{yyleng} y \texttt{yylex()}?
+
+    \item Cuando usamos Flex junto con Bison, ¿quién llama normalmente
+    a \texttt{yylex()}?
+\end{enumerate}
+
+\subsection{Entrada no reconocida}
+
+Considérense las siguientes reglas:
+
+\begin{verbatim}
+"int"       { return INT; }
+[0-9]+      { return NUMERO; }
+"+"         { return SUMA; }
+
+. {
+    printf("Error léxico: %s\n", yytext);
+}
+\end{verbatim}
+
+y la entrada:
+
+\begin{verbatim}
+int x = 10 @ 20
+\end{verbatim}
+
+\begin{enumerate}
+    \item ¿Qué ocurre con \texttt{int}?
+
+    \item ¿Qué ocurre con \texttt{10}?
+
+    \item ¿Qué ocurre con \texttt{@}?
+
+    \item ¿Qué contiene \texttt{yytext} cuando se ejecuta la regla
+    \texttt{.}?
+
+    \item ¿Qué ocurre después de procesar \texttt{@}?
+\end{enumerate}
+
+\subsection{Espacios}
+
+Considérese la regla:
+
+\begin{verbatim}
+[ \t\n]+    { /* ignorar */ }
+\end{verbatim}
+
+\begin{enumerate}
+    \item ¿Qué reconoce esta regla?
+
+    \item ¿Por qué normalmente no queremos generar tokens para los
+    espacios?
+
+    \item ¿Qué ocurre con una entrada como:
+
+\begin{verbatim}
+int     x
+\end{verbatim}
+
+    ¿Flex procesa los espacios? ¿Los devuelve como tokens?
+\end{enumerate}
+
+\subsection{Ejercicio integrador}
+
+Considérense las siguientes reglas:
+
+\begin{verbatim}
+"if"                          { return IF; }
+"=="                          { return IGUALDAD; }
+"="                           { return ASIGNACION; }
+[0-9]+                        { return NUMERO; }
+[a-zA-Z_][a-zA-Z0-9_]*        { return IDENTIFICADOR; }
+"+"                           { return SUMA; }
+[ \t\n]+                      { /* ignorar */ }
+.                             { return ERROR; }
+\end{verbatim}
+
+Analizar la siguiente entrada:
+
+\begin{verbatim}
+if edad == 123 + edad @ 5
+\end{verbatim}
+
+Completar la siguiente tabla:
+
+\[
+\begin{array}{c|c|c|c}
+\text{Entrada restante} & \texttt{yytext} &
+\texttt{yyleng} & \text{Token} \\
+\hline
+\texttt{if edad == 123 + edad @ 5} & & & \\
+\texttt{edad == 123 + edad @ 5} & & & \\
+\texttt{== 123 + edad @ 5} & & & \\
+\texttt{123 + edad @ 5} & & & \\
+\texttt{+ edad @ 5} & & & \\
+\texttt{edad @ 5} & & & \\
+\texttt{@ 5} & & & \\
+\texttt{5} & & &
+\end{array}
+\]
+
+No es necesario incluir las posiciones correspondientes a los espacios
+que son ignorados.
+
+\subsection{Pregunta final}
+
+Explicar con palabras propias:
+
+\begin{quote}
+¿Qué hace Flex desde que recibe la entrada
+\texttt{1234 + 56} hasta que termina produciendo los tokens?
+\end{quote}
+
+La explicación debería incluir el reconocimiento de patrones, el
+emparejamiento más largo, el uso de \texttt{yytext} y \texttt{yyleng},
+la ejecución de las acciones y la continuación del análisis sobre la
+entrada restante.
+
+\end{document}
