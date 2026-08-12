@@ -1,34 +1,28 @@
 %{
 #include <stdio.h>
+#include "example.tab.h"
 %}
 
+SIMBOLO  [0-9]
+OPERANDO [-+]
 
-DIGITO [0-9]
 %%
 
-{DIGITO}+ {
-    printf("NUMBER(%s)\n", yytext);
+{SIMBOLO}+ {
+    printf("SIMBOLO: %s\n", yytext);
+    return SIMBOLO;
 }
 
-"+" {
-    printf("PLUS\n");
+{OPERANDO} {
+    printf("OPERANDO: %s\n", yytext);
+    return OPERANDO;
 }
 
-[ \t\n]+ ;
+[ \t\n] ;
 
 . {
-    printf("UNKNOWN(%s)\n", yytext);
-}
-
-%%
-
-int main(void)
-{
-    yylex();
+    printf("CARACTER INVALIDO: %s\n", yytext);
     return 0;
 }
 
-int yywrap(void)
-{
-    return 1;
-}
+%%
