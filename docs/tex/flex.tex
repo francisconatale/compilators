@@ -1,0 +1,774 @@
+\documentclass{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{array}
+\usepackage{geometry}
+\usepackage{enumitem}
+
+\geometry{margin=2.5cm}
+
+\begin{document}
+
+\section{Análisis léxico con Flex}
+
+El análisis léxico puede modelarse conceptualmente como una función que
+recorre el código fuente, identifica lexemas y los transforma en tokens.
+Flex permite automatizar la implementación de esta función a partir de una
+especificación de patrones léxicos.
+
+Sea $C$ el código fuente y sea $T$ el conjunto de tokens del lenguaje.
+Podemos representar el analizador léxico como:
+
+\[
+L : C \rightarrow T^*
+\]
+
+donde $T^*$ representa una secuencia de tokens.
+
+De forma recursiva, el lexer puede interpretarse como una función que
+consume progresivamente la entrada. Si $c$ representa la entrada restante,
+el analizador busca el siguiente lexema reconocido por alguno de los
+patrones definidos y ejecuta la acción asociada.
+
+\[
+L(c) =
+\begin{cases}
+[] & \text{si } c = \epsilon \\[4pt]
+t :: L(c') & \text{si el lexema } l \text{ coincide con un patrón y}\\
+& \text{la acción asociada produce el token } t \\[4pt]
+l :: L(c') & \text{si el lexema } l \text{ no coincide con ningún patrón}
+\end{cases}
+\]
+
+donde $c'$ representa la entrada restante después de consumir el lexema
+$l$.
+
+\subsection{Patrones y acciones}
+
+Una especificación de Flex está formada por reglas que relacionan un
+\textit{patrón} con una \textit{acción}. El comienzo de esta sección se
+indica mediante \texttt{\%\%}.
+
+Por ejemplo:
+
+\begin{verbatim}
+%%
+"username"    printf("%s", getlogin());
+\end{verbatim}
+
+En esta regla, \texttt{"username"} es el patrón y
+\texttt{printf("\%s", getlogin())} es la acción.
+
+Cuando Flex encuentra la cadena \texttt{username} en la entrada, ejecuta
+la acción asociada y reemplaza dicha cadena por el nombre de usuario
+obtenido mediante \texttt{getlogin()}.
+
+Por defecto, cuando Flex encuentra texto que no coincide con ninguno de
+los patrones definidos, dicho texto se copia directamente a la salida.
+Por lo tanto, en el ejemplo anterior, el analizador copia el archivo de
+entrada a la salida, excepto por las apariciones de \texttt{"username"},
+que son reemplazadas por el nombre de usuario correspondiente.
+
+Este comportamiento permite entender una regla de Flex como una
+transformación:
+
+\[
+\text{patrón léxico}
+\longrightarrow
+\text{acción}
+\]
+
+donde la acción determina qué ocurre cuando el patrón es reconocido.
+
+\subsection{Expresiones regulares y patrones de Flex}
+
+Los patrones de Flex se construyen principalmente mediante expresiones
+regulares. Estas permiten describir conjuntos de cadenas que pueden
+aparecer en el código fuente.
+
+\subsubsection{Caracteres literales}
+
+Un carácter escrito directamente en el patrón representa ese carácter.
+
+\begin{verbatim}
++
+-
+*
+=
+;
+\end{verbatim}
+
+Por ejemplo:
+
+\begin{verbatim}
+"+"    { return SUMA; }
+"="    { return ASIGNACION; }
+";"    { return PUNTO_COMA; }
+\end{verbatim}
+
+Las comillas permiten representar explícitamente una cadena literal.
+
+\subsubsection{Cadenas literales}
+
+Una secuencia de caracteres entre comillas representa exactamente esa
+secuencia.
+
+\begin{verbatim}
+"int"
+"while"
+"return"
+"=="
+\end{verbatim}
+
+Por ejemplo:
+
+\begin{verbatim}
+"while"    { return WHILE; }
+"return"   { return RETURN; }
+\end{verbatim}
+
+\subsubsection{Clase de caracteres}
+
+Los corchetes permiten especificar un conjunto de caracteres. El patrón
+coincide con exactamente un carácter perteneciente a ese conjunto.
+
+\begin{verbatim}
+[abc]
+\end{verbatim}
+
+coincide con:
+
+\begin{verbatim}
+a
+b
+c
+\end{verbatim}
+
+También pueden utilizarse rangos:
+
+\begin{verbatim}
+[a-z]
+[A-Z]
+[0-9]
+\end{verbatim}
+
+Por ejemplo:
+
+\begin{verbatim}
+[0-9]    { return DIGITO; }
+\end{verbatim}
+
+reconoce cualquier dígito entre $0$ y $9$.
+
+Los rangos pueden combinarse:
+
+\begin{verbatim}
+[a-zA-Z]
+[a-zA-Z0-9]
+\end{verbatim}
+
+\subsubsection{Negación de una clase}
+
+El carácter \texttt{\^{}} como primer carácter dentro de una clase niega
+la clase.
+
+\begin{verbatim}
+[^0-9]
+\end{verbatim}
+
+coincide con cualquier carácter que no sea un dígito.
+
+Por ejemplo:
+
+\begin{verbatim}
+[^a-zA-Z0-9]
+\end{verbatim}
+
+coincide con cualquier carácter que no sea una letra ni un número.
+
+\subsubsection{Concatenación}
+
+Dos patrones escritos uno después del otro representan una concatenación.
+Ambos deben aparecer consecutivamente en la entrada.
+
+Por ejemplo:
+
+\begin{verbatim}
+ab
+\end{verbatim}
+
+coincide con:
+
+\begin{verbatim}
+ab
+\end{verbatim}
+
+pero no con:
+
+\begin{verbatim}
+a
+b
+ac
+\end{verbatim}
+
+Un identificador puede expresarse mediante:
+
+\begin{verbatim}
+[a-zA-Z_][a-zA-Z0-9_]*
+\end{verbatim}
+
+donde primero debe aparecer una letra o guion bajo y posteriormente
+pueden aparecer letras, números o guiones bajos.
+
+\subsubsection{Alternancia}
+
+El operador \texttt{|} representa una alternativa. El patrón coincide con
+una opción u otra.
+
+\begin{verbatim}
+if|while|for
+\end{verbatim}
+
+coincide con cualquiera de:
+
+\begin{verbatim}
+if
+while
+for
+\end{verbatim}
+
+También puede utilizarse con grupos:
+
+\begin{verbatim}
+(if|while|for)
+\end{verbatim}
+
+\subsubsection{Cero o más repeticiones}
+
+El operador \texttt{*} significa que el elemento anterior puede aparecer
+cero o más veces.
+
+\begin{verbatim}
+[0-9]*
+\end{verbatim}
+
+coincide con:
+
+\begin{verbatim}
+""
+"1"
+"123"
+"98765"
+\end{verbatim}
+
+Por ejemplo:
+
+\begin{verbatim}
+[a-zA-Z_][a-zA-Z0-9_]*
+\end{verbatim}
+
+permite que después del primer carácter de un identificador aparezca
+cualquier cantidad de letras, números o guiones bajos.
+
+\subsubsection{Una o más repeticiones}
+
+El operador \texttt{+} significa que el elemento anterior debe aparecer
+una o más veces.
+
+\begin{verbatim}
+[0-9]+
+\end{verbatim}
+
+coincide con:
+
+\begin{verbatim}
+1
+123
+98765
+\end{verbatim}
+
+pero no coincide con una cadena vacía.
+
+Por ejemplo, esta es una forma habitual de reconocer números enteros:
+
+\begin{verbatim}
+[0-9]+    { return NUMERO; }
+\end{verbatim}
+
+\subsubsection{Cero o una aparición}
+
+El operador \texttt{?} indica que el elemento anterior puede aparecer
+cero o una vez.
+
+\begin{verbatim}
+-?[0-9]+
+\end{verbatim}
+
+permite reconocer:
+
+\begin{verbatim}
+123
+-123
+45
+-45
+\end{verbatim}
+
+Por lo tanto, puede utilizarse para representar un signo negativo
+opcional.
+
+\subsubsection{Repeticiones exactas y rangos}
+
+Las expresiones entre llaves permiten especificar cantidades de
+repeticiones.
+
+\begin{verbatim}
+[0-9]{4}
+\end{verbatim}
+
+indica exactamente cuatro dígitos.
+
+Por ejemplo:
+
+\begin{verbatim}
+2026
+1234
+9876
+\end{verbatim}
+
+También pueden especificarse rangos:
+
+\begin{verbatim}
+[0-9]{2,4}
+\end{verbatim}
+
+que permite entre dos y cuatro dígitos.
+
+\begin{verbatim}
+[0-9]{2,}
+\end{verbatim}
+
+permite dos o más dígitos.
+
+\subsubsection{Cualquier carácter}
+
+El punto \texttt{.} representa cualquier carácter excepto, en general,
+un salto de línea.
+
+Por ejemplo:
+
+\begin{verbatim}
+.    { return CARACTER; }
+\end{verbatim}
+
+puede utilizarse como regla general para detectar caracteres que no fueron
+reconocidos por reglas anteriores.
+
+Esta característica resulta especialmente útil para detectar errores
+léxicos:
+
+\begin{verbatim}
+. {
+    printf("Error léxico: %s\n", yytext);
+}
+\end{verbatim}
+
+\subsubsection{Paréntesis y agrupación}
+
+Los paréntesis permiten agrupar patrones para aplicar operadores sobre
+varios elementos.
+
+Por ejemplo:
+
+\begin{verbatim}
+(ab)+
+\end{verbatim}
+
+coincide con:
+
+\begin{verbatim}
+ab
+abab
+ababab
+\end{verbatim}
+
+También pueden combinarse con alternancia:
+
+\begin{verbatim}
+(if|while|for)
+\end{verbatim}
+
+\subsubsection{Caracteres especiales}
+
+Algunos caracteres poseen un significado especial dentro de una
+expresión regular. Entre ellos se encuentran:
+
+\begin{verbatim}
+.  *  +  ?  |  (  )  [  ]  {  }  ^  $
+\end{verbatim}
+
+Cuando se necesita reconocer literalmente uno de estos caracteres,
+puede utilizarse una barra inversa para escaparlo.
+
+Por ejemplo:
+
+\begin{verbatim}
+\+
+\*
+\(
+\)
+\[
+\]
+\{
+\}
+\.
+\end{verbatim}
+
+También es habitual utilizar comillas para representar operadores como
+literales:
+
+\begin{verbatim}
+"+"     { return SUMA; }
+"*"     { return MULTIPLICACION; }
+"("     { return PARENTESIS_IZQ; }
+")"     { return PARENTESIS_DER; }
+\end{verbatim}
+
+\subsubsection{Caracteres especiales de escape}
+
+Flex permite utilizar secuencias de escape para representar caracteres
+especiales.
+
+Algunos de los más utilizados son:
+
+\begin{center}
+\begin{tabular}{c|l}
+\textbf{Secuencia} & \textbf{Significado} \\
+\hline
+\texttt{\textbackslash n} & salto de línea \\
+\texttt{\textbackslash t} & tabulación \\
+\texttt{\textbackslash r} & retorno de carro \\
+\texttt{\textbackslash f} & salto de página \\
+\texttt{\textbackslash v} & tabulación vertical \\
+\texttt{\textbackslash \textbackslash} & barra inversa \\
+\end{tabular}
+\end{center}
+
+Por ejemplo:
+
+\begin{verbatim}
+[ \t\n]+    { /* ignorar espacios */ }
+\end{verbatim}
+
+\subsubsection{Inicio y final de línea}
+
+El carácter \texttt{\^} fuera de una clase de caracteres puede utilizarse
+para indicar el comienzo de una línea.
+
+Por ejemplo:
+
+\begin{verbatim}
+^int
+\end{verbatim}
+
+coincide con \texttt{int} cuando aparece al comienzo de una línea.
+
+El carácter \texttt{\$} puede utilizarse para indicar el final de una
+línea.
+
+Por ejemplo:
+
+\begin{verbatim}
+int$
+\end{verbatim}
+
+coincide con \texttt{int} cuando aparece al final de una línea.
+
+\subsubsection{Contexto posterior}
+
+Flex permite utilizar el operador \texttt{/} para especificar contexto
+posterior.
+
+Por ejemplo:
+
+\begin{verbatim}
+[0-9]+/[a-zA-Z]
+\end{verbatim}
+
+indica que una secuencia de números debe estar seguida por una letra para
+que el patrón sea considerado un emparejamiento válido.
+
+El texto utilizado como contexto posterior participa en la determinación
+del emparejamiento, aunque no necesariamente forma parte del texto
+devuelto como token.
+
+\subsubsection{Macros de patrones}
+
+Flex permite definir nombres para patrones en la sección de
+definiciones. Esto evita repetir expresiones regulares complejas.
+
+Por ejemplo:
+
+\begin{verbatim}
+DIGITO      [0-9]
+LETRA       [a-zA-Z]
+ID          {LETRA}({LETRA}|{DIGITO})*
+\end{verbatim}
+
+Luego pueden utilizarse estos nombres en las reglas:
+
+\begin{verbatim}
+%%
+{ID}       { return IDENTIFICADOR; }
+{DIGITO}+  { return NUMERO; }
+\end{verbatim}
+
+Esto permite construir patrones complejos a partir de patrones más
+simples y hace que la especificación sea más legible.
+
+\subsection{Resumen de patrones}
+
+Los principales operadores de expresiones regulares utilizados en Flex
+pueden resumirse de la siguiente manera:
+
+\begin{center}
+\begin{tabular}{c|l}
+\textbf{Patrón} & \textbf{Significado} \\
+\hline
+\texttt{a} & carácter literal \\
+\texttt{"abc"} & cadena literal \\
+\texttt{[abc]} & uno de los caracteres indicados \\
+\texttt{[a-z]} & un carácter dentro de un rango \\
+\texttt{[\^{}a-z]} & cualquier carácter fuera del rango \\
+\texttt{.} & cualquier carácter excepto salto de línea \\
+\texttt{ab} & concatenación de patrones \\
+\texttt{a|b} & alternativa entre patrones \\
+\texttt{a*} & cero o más repeticiones \\
+\texttt{a+} & una o más repeticiones \\
+\texttt{a?} & cero o una aparición \\
+\texttt{a\{n\}} & exactamente $n$ repeticiones \\
+\texttt{a\{n,m\}} & entre $n$ y $m$ repeticiones \\
+\texttt{(ab)} & agrupación \\
+\texttt{\^{}a} & comienzo de línea \\
+\texttt{a\$} & final de línea \\
+\texttt{a/b} & contexto posterior \\
+\texttt{\textbackslash c} & carácter especial escapado \\
+\end{tabular}
+\end{center}
+
+Estos patrones constituyen las herramientas fundamentales para describir
+los lexemas de un lenguaje de programación.
+
+\subsection{Proceso de emparejamiento}
+
+Cuando el escáner generado por Flex se encuentra en una determinada
+posición de la entrada, busca los patrones que pueden comenzar en dicha
+posición. Cada patrón intenta consumir la mayor cantidad de caracteres
+posible.
+
+Por ejemplo, si se definen las siguientes reglas:
+
+\begin{verbatim}
+[0-9]     { return DIGITO; }
+[0-9]+    { return NUMERO; }
+\end{verbatim}
+
+y la entrada es:
+
+\begin{verbatim}
+1234 + 1
+\end{verbatim}
+
+al comenzar en el primer carácter, ambas reglas pueden coincidir:
+
+\[
+\begin{array}{c|c}
+\text{Patrón} & \text{Emparejamiento} \\
+\hline
+\texttt{[0-9]} & \texttt{1} \\
+\texttt{[0-9]+} & \texttt{1234}
+\end{array}
+\]
+
+Flex selecciona el emparejamiento que consume más caracteres. Por lo
+tanto, selecciona:
+
+\[
+\texttt{1234} \longrightarrow \text{NUMERO}
+\]
+
+y no:
+
+\[
+\texttt{1} \longrightarrow \text{DIGITO}
+\]
+
+La posición de análisis avanza solamente después de haber determinado
+el emparejamiento ganador. En este caso, después de reconocer
+\texttt{1234}, la entrada restante es:
+
+\begin{verbatim}
++ 1
+\end{verbatim}
+
+A continuación, Flex repite el mismo proceso desde la nueva posición.
+
+De esta manera, el proceso puede resumirse en los siguientes pasos:
+
+\begin{enumerate}
+\item Se fija la posición actual de la entrada.
+\item Se buscan todos los patrones que pueden coincidir desde esa
+posición.
+\item Cada patrón intenta extender el emparejamiento tanto como sea
+posible.
+\item Se conservan los emparejamientos válidos encontrados.
+\item Se selecciona el emparejamiento que consume la mayor cantidad
+de caracteres.
+\item Se ejecuta la acción asociada al patrón seleccionado.
+\item La posición de la entrada avanza hasta el final del lexema
+reconocido.
+\item El proceso se repite hasta alcanzar el final de la entrada.
+\end{enumerate}
+
+Este comportamiento se conoce como el principio de
+\textit{emparejamiento más largo} o \textit{maximal munch}.
+
+Si dos o más patrones producen emparejamientos de la misma longitud,
+Flex selecciona el patrón que aparece primero en el archivo de
+especificación.
+
+\subsection{Flex como productor de tokens}
+
+Cuando Flex se utiliza como parte de un compilador, las acciones de las
+reglas pueden utilizarse para producir tokens que posteriormente serán
+consumidos por el parser generado por Bison.
+
+Por ejemplo:
+
+\begin{verbatim}
+%%
+"int"                         { return INT; }
+[0-9]+                        { return NUMERO; }
+[a-zA-Z_][a-zA-Z0-9_]*        { return IDENTIFICADOR; }
+"+"                           { return SUMA; }
+"="                           { return ASIGNACION; }
+";"                           { return PUNTO_COMA; }
+[ \t\n]+                      { /* ignorar */ }
+\end{verbatim}
+
+Para una entrada como:
+
+\begin{verbatim}
+int x = 10 + 20;
+\end{verbatim}
+
+el análisis léxico produce conceptualmente:
+
+\[
+[
+\text{INT},
+\text{IDENTIFICADOR},
+\text{ASIGNACION},
+\text{NUMERO},
+\text{SUMA},
+\text{NUMERO},
+\text{PUNTO\_COMA}
+]
+\]
+
+Los espacios, tabulaciones y saltos de línea pueden ser reconocidos por
+una regla específica y descartados mediante una acción vacía.
+
+\subsection{Lexema reconocido y variables de Flex}
+
+Una vez determinado el emparejamiento, Flex pone a disposición de la
+acción correspondiente el texto reconocido mediante la variable
+\texttt{yytext} y su longitud mediante la variable global entera
+\texttt{yyleng}.
+
+Por ejemplo:
+
+\begin{verbatim}
+[0-9]+ {
+    printf("Lexema: %s\n", yytext);
+    printf("Longitud: %d\n", yyleng);
+}
+\end{verbatim}
+
+Si la entrada contiene:
+
+\begin{verbatim}
+1234
+\end{verbatim}
+
+el valor de \texttt{yytext} será:
+
+\begin{verbatim}
+1234
+\end{verbatim}
+
+mientras que \texttt{yyleng} tendrá el valor:
+
+\[
+4
+\]
+
+Esto permite que la acción asociada a una regla trabaje con el lexema
+completo que fue reconocido y no solamente con el primer carácter que
+coincidió con el patrón.
+
+\subsection{Camino no feliz}
+
+Un caso no feliz ocurre cuando el código fuente contiene un carácter o
+secuencia que no coincide con ninguno de los patrones definidos.
+
+Por ejemplo:
+
+\begin{verbatim}
+int x = 10 @ 20;
+\end{verbatim}
+
+Si el lenguaje no define el carácter \texttt{@}, podemos utilizar una
+regla general para detectarlo:
+
+\begin{verbatim}
+. {
+    printf("Error léxico: %s\n", yytext);
+}
+\end{verbatim}
+
+El procesamiento será conceptualmente:
+
+\[
+\begin{array}{c|c}
+\text{Lexema} & \text{Resultado} \\
+\hline
+\texttt{int} & \text{INT} \\
+\texttt{x} & \text{IDENTIFICADOR} \\
+\texttt{=} & \text{ASIGNACION} \\
+\texttt{10} & \text{NUMERO} \\
+\texttt{@} & \text{ERROR LÉXICO} \\
+\texttt{20} & \text{NUMERO} \\
+\texttt{;} & \text{PUNTO\_COMA}
+\end{array}
+\]
+
+Por lo tanto, Flex recorre la entrada buscando continuamente el
+emparejamiento más largo disponible en cada posición. Una vez reconocido
+el lexema, ejecuta la acción correspondiente y continúa el análisis desde
+el carácter siguiente.
+
+Finalmente, el flujo completo puede resumirse como:
+
+\[
+\text{Código fuente}
+\xrightarrow{\text{Flex}}
+\text{Secuencia de tokens}
+\xrightarrow{\text{Bison}}
+\text{Análisis sintáctico}
+\]
+
+\end{document}
