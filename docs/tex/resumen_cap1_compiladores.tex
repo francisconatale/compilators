@@ -1,0 +1,1300 @@
+\documentclass[11pt,a4paper]{article}
+
+% ------------------------------------------------
+% Paquetes
+% ------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-nodecimaldot]{babel}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{tocloft}
+
+% ------------------------------------------------
+% Configuración de página
+% ------------------------------------------------
+\geometry{
+    margin=2.5cm
+}
+
+% ------------------------------------------------
+% Configuración de código
+% ------------------------------------------------
+\lstset{
+    basicstyle=\ttfamily\small,
+    columns=fullflexible,
+    keepspaces=true,
+    frame=single,
+    breaklines=true
+}
+
+% ------------------------------------------------
+% Documento
+% ------------------------------------------------
+\begin{document}
+
+\begin{center}
+    {\LARGE \textbf{Resumen ampliado --- Capítulo 1}}\\[4pt]
+    {\Large \textit{Introducción al diseño e implementación de compiladores}}\\[4pt]
+    \textit{Basado en el Capítulo 1 de Aho, Lam, Sethi y Ullman, \textbf{Compiladores: principios,
+    técnicas y herramientas} (``Libro del Dragón'')}\\[2pt]
+    \small Material de repaso --- Cátedra de Compiladores
+\end{center}
+
+\vspace{0.4cm}
+
+\tableofcontents
+
+\bigskip
+
+\section{Introducción}
+
+Los lenguajes de programación son la forma en que las personas describen cálculos a las
+máquinas. Sin embargo, ningún programa fuente puede ejecutarse directamente: antes debe
+\textbf{traducirse} a un formato que la computadora pueda procesar. Los sistemas de software
+que realizan esta traducción se llaman \textbf{compiladores}.
+
+El estudio de los compiladores no es solamente el estudio de una herramienta puntual: las
+ideas y técnicas que se utilizan para construirlos (autómatas finitos, expresiones regulares,
+gramáticas libres de contexto, análisis de flujo de datos, optimización) reaparecen en muchas
+otras áreas de las ciencias de la computación. Por esta razón, comprender la estructura general
+de un compilador es la base indispensable para todo lo que veremos después en la materia,
+en particular para las herramientas \textbf{Flex} (generador de analizadores léxicos) y
+\textbf{Bison} (generador de analizadores sintácticos), que automatizan justamente las dos
+primeras fases que se describen en este capítulo.
+
+\section{Procesadores de lenguaje}
+
+En su forma más simple, un \textbf{compilador} es un programa que lee un programa escrito en
+un \textbf{lenguaje fuente} y lo traduce a un programa equivalente escrito en un
+\textbf{lenguaje destino}. Una función esencial del compilador es, además, reportar los
+errores del programa fuente que detecte durante la traducción.
+
+\[
+\text{programa fuente} \longrightarrow \boxed{\text{Compilador}} \longrightarrow \text{programa destino}
+\]
+
+Si el programa destino es un programa ejecutable en lenguaje máquina, el usuario puede
+ejecutarlo directamente para procesar entradas y producir salidas:
+
+\[
+\text{entrada} \longrightarrow \boxed{\text{Programa destino}} \longrightarrow \text{salida}
+\]
+
+\subsection{Compiladores vs. intérpretes}
+
+Un \textbf{intérprete} es otro tipo de procesador de lenguaje muy común. En vez de producir un
+programa destino como traducción, el intérprete da la apariencia de ejecutar directamente las
+operaciones especificadas en el programa fuente, usando las entradas suministradas por el
+usuario:
+
+\[
+\text{programa fuente, entrada} \longrightarrow \boxed{\text{Intérprete}} \longrightarrow \text{salida}
+\]
+
+En términos de eficiencia y diagnóstico de errores existe un compromiso:
+
+\begin{itemize}
+    \item El programa destino en lenguaje máquina que produce un \textbf{compilador} suele ser
+    \textbf{más rápido} que un intérprete al mapear entradas a salidas, porque la traducción se
+    realiza una sola vez.
+    \item Un \textbf{intérprete} suele ofrecer \textbf{mejores diagnósticos de error}, ya que
+    ejecuta el programa fuente instrucción por instrucción y puede reportar el contexto exacto en
+    el que ocurre un fallo.
+\end{itemize}
+
+\textbf{Procesadores híbridos.} Muchos lenguajes modernos combinan ambas estrategias. El caso
+clásico es Java: el programa fuente se compila primero a un formato intermedio llamado
+\textit{bytecode}, y luego una máquina virtual interpreta esos bytecodes. Esto permite que el
+mismo bytecode compilado en una máquina se ejecute en otra distinta (incluso a través de una
+red). Para acelerar aún más la ejecución, los compiladores \textit{just-in-time} (JIT) traducen
+los bytecodes a lenguaje máquina justo antes de ejecutarlos.
+
+\[
+\begin{array}{c}
+\text{programa fuente} \to \boxed{\text{Traductor}} \to \text{programa intermedio} \\[4pt]
+\downarrow \text{entrada} \\[2pt]
+\boxed{\text{Máquina virtual}} \to \text{salida}
+\end{array}
+\]
+
+\subsection{El sistema completo de procesamiento de lenguaje}
+
+Para producir un ejecutable final, generalmente se requieren varios programas además del
+compilador propiamente dicho:
+
+\begin{enumerate}
+    \item Un \textbf{preprocesador} recolecta el programa fuente (que puede estar dividido en
+    varios módulos/archivos) y expande \textit{macros}, es decir, fragmentos de código
+    abreviados de uso frecuente, en instrucciones del lenguaje fuente.
+    \item El \textbf{compilador} traduce el programa fuente (ya preprocesado) a un programa
+    destino, que muchas veces es código en \textbf{lenguaje ensamblador}, porque resulta más
+    fácil de generar y de depurar que el código máquina directo.
+    \item Un \textbf{ensamblador} procesa el código ensamblador y produce \textbf{código máquina
+    relocalizable}.
+    \item Un \textbf{enlazador (linker)} resuelve las referencias a direcciones de memoria
+    externas, es decir, cuando código de un archivo hace referencia a algo definido en otro
+    archivo, y combina el código relocalizable con archivos objeto y bibliotecas.
+    \item Un \textbf{cargador (loader)} reúne todos los archivos objeto ejecutables en memoria
+    para su ejecución.
+\end{enumerate}
+
+\[
+\begin{array}{c}
+\text{fuente} \to \boxed{\text{Preprocesador}} \to \text{fuente modificado} \to
+\boxed{\text{Compilador}} \to \text{ensamblador} \\[6pt]
+\downarrow \\[6pt]
+\boxed{\text{Ensamblador}} \to \text{código máquina relocalizable} \\[6pt]
+\downarrow \\[6pt]
+\boxed{\text{Enlazador/Cargador}} \to \text{código máquina destino}
+\end{array}
+\]
+
+Esta separación en programas independientes es una primera manifestación de una idea que
+reaparecerá constantemente en la materia: dividir un problema grande y complejo (traducir un
+lenguaje) en \textbf{etapas más pequeñas y manejables}, cada una con una responsabilidad
+claramente delimitada.
+
+\section{La estructura interna de un compilador}
+
+Si ``abrimos la caja'' del compilador, encontramos que la traducción se realiza en dos grandes
+partes:
+
+\begin{itemize}
+    \item El \textbf{análisis} (\textit{front-end}) descompone el programa fuente en sus
+    componentes, les impone una estructura gramatical y construye a partir de ellos una
+    \textbf{representación intermedia}. Si detecta que el programa está mal formado
+    sintácticamente o que su semántica es inconsistente, debe emitir mensajes de error útiles.
+    El análisis también recolecta información sobre el programa en la \textbf{tabla de
+    símbolos}.
+    \item La \textbf{síntesis} (\textit{back-end}) construye el programa destino a partir de la
+    representación intermedia y de la información almacenada en la tabla de símbolos.
+\end{itemize}
+
+En nuestro caso, el lenguaje destino de todo el proceso será \textbf{C}, de modo que el
+compilador que construiremos terminará generando un programa en C, el cual luego será
+compilado por un compilador de C ya existente.
+
+De forma general:
+
+\[
+\text{Programa fuente} \rightarrow \text{Análisis} \rightarrow \text{Representación intermedia}
+\rightarrow \text{Optimización} \rightarrow \text{Código destino}
+\]
+
+Analizado con más detalle, el proceso de compilación opera como una \textbf{secuencia de
+fases}, cada una de las cuales transforma una representación del programa fuente en otra:
+
+\[
+\begin{array}{c}
+\text{flujo de caracteres} \\
+\downarrow \\
+\boxed{\text{Analizador léxico}} \\
+\downarrow \\
+\text{flujo de tokens} \\
+\downarrow \\
+\boxed{\text{Analizador sintáctico}} \\
+\downarrow \\
+\text{árbol sintáctico} \\
+\downarrow \\
+\boxed{\text{Analizador semántico}} \\
+\downarrow \\
+\text{árbol sintáctico (anotado)} \\
+\downarrow \\
+\boxed{\text{Generador de código intermedio}} \\
+\downarrow \\
+\text{representación intermedia} \\
+\downarrow \\
+\boxed{\text{Optimizador de código}} \\
+\downarrow \\
+\text{representación intermedia optimizada} \\
+\downarrow \\
+\boxed{\text{Generador de código}} \\
+\downarrow \\
+\text{código máquina destino}
+\end{array}
+\]
+
+La \textbf{tabla de símbolos} se utiliza de manera transversal en todas las fases, ya que
+almacena información sobre todo el programa fuente. La fase de \textbf{optimización de código
+independiente de la máquina}, entre el front-end y el back-end, es \textbf{opcional}: su
+objetivo es transformar la representación intermedia para que el back-end pueda producir mejor
+código destino.
+
+En la práctica, varias fases pueden agruparse y las representaciones intermedias entre fases
+agrupadas no necesitan construirse explícitamente; volveremos sobre esta idea en la sección
+\ref{sec:fases-pasadas} (\textit{Fases y pasadas}).
+
+Como ejemplo guía utilizaremos el siguiente programa fuente, igual que en el resto de la
+cátedra:
+
+\begin{lstlisting}
+int x = 10 + 20;
+\end{lstlisting}
+
+\subsection{Análisis léxico}
+\label{sec:lexico}
+
+El análisis léxico, también llamado \textbf{escaneo}, constituye la primera fase del
+compilador. El analizador léxico lee el flujo de caracteres del programa fuente y los agrupa en
+secuencias significativas llamadas \textbf{lexemas}. Para cada lexema, produce como salida un
+\textbf{token} de la forma:
+
+\[
+\langle \text{nombre-token}, \text{valor-atributo} \rangle
+\]
+
+que se pasa a la fase siguiente, el análisis sintáctico. El \textbf{nombre-token} es un símbolo
+abstracto utilizado durante el análisis sintáctico (por ejemplo, \texttt{id}, \texttt{+}), y el
+\textbf{valor-atributo} suele apuntar a una entrada en la \textbf{tabla de símbolos} con
+información adicional sobre ese token (por ejemplo, el nombre y el tipo de un identificador).
+
+De esta manera, el análisis léxico separa la \textbf{representación concreta} escrita por el
+programador de la \textbf{categoría} que interesa a las fases posteriores, y el analizador
+léxico \textbf{ignora los espacios en blanco} que separan a los lexemas.
+
+Por lo tanto, el análisis léxico responde principalmente a la pregunta:
+
+\begin{quote}
+\textit{¿Qué unidades léxicas aparecen en la secuencia de caracteres del programa fuente?}
+\end{quote}
+
+El analizador léxico \textbf{no} determina si esas unidades pueden combinarse correctamente:
+esa responsabilidad corresponde al analizador sintáctico (sección \ref{sec:sintactico}).
+
+Para nuestro ejemplo:
+
+\begin{lstlisting}
+int x = 10 + 20;
+\end{lstlisting}
+
+podemos identificar los siguientes lexemas:
+
+\begin{lstlisting}
+int
+x
+=
+10
++
+20
+;
+\end{lstlisting}
+
+Cada uno de estos lexemas pertenece a una categoría léxica (token):
+
+\begin{lstlisting}
+INT
+IDENTIFIER
+ASSIGN
+INTEGER
+PLUS
+INTEGER
+SEMICOLON
+\end{lstlisting}
+
+\paragraph{Relevancia para Flex.} Esta fase es exactamente la que automatiza \textbf{Flex}: a
+partir de una especificación de patrones (expresiones regulares) para cada categoría léxica,
+Flex genera automáticamente el código en C de una función (típicamente \texttt{yylex()}) capaz
+de leer el flujo de caracteres, agruparlo en lexemas y devolver, uno por uno, los tokens
+correspondientes. Retomaremos esta conexión en la sección \ref{sec:flex-bison}.
+
+\subsection{Lexemas, tokens y patrones}
+\label{sec:lexemas-tokens-patrones}
+
+Es fundamental distinguir con precisión estos tres conceptos, ya que son la base conceptual de
+cualquier especificación léxica (y, por lo tanto, de cualquier archivo \texttt{.l} de Flex):
+
+\begin{itemize}
+    \item Un \textbf{lexema} es una secuencia concreta de caracteres del programa fuente que
+    forma una unidad, por ejemplo \texttt{contador}, \texttt{25} o \texttt{=}.
+    \item Un \textbf{token} es la categoría léxica que se asigna a un lexema, representada como
+    un par $\langle \text{nombre-token}, \text{valor-atributo} \rangle$. El
+    \textbf{valor-atributo} sólo es necesario cuando existen varios lexemas posibles para el
+    mismo token (por ejemplo, distintos identificadores); tokens como \texttt{=} no lo
+    necesitan.
+    \item Un \textbf{patrón} es la \textbf{regla} —típicamente una expresión regular— que
+    describe qué secuencias de caracteres pueden formar los lexemas de un determinado token.
+\end{itemize}
+
+Para nuestro lenguaje de ejemplo, la especificación léxica inicial es:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{>{\ttfamily}c c c}
+\toprule
+\textbf{Token} & \textbf{Patrón (expresión regular)} & \textbf{Ejemplo de lexema} \\
+\midrule
+INT &
+\texttt{int} &
+\texttt{int} \\
+
+IDENTIFIER &
+\texttt{[a-zA-Z\_][a-zA-Z0-9\_]*} &
+\texttt{x}, \texttt{contador} \\
+
+INTEGER &
+\texttt{[0-9]+} &
+\texttt{10}, \texttt{250} \\
+
+ASSIGN &
+\texttt{=} &
+\texttt{=} \\
+
+PLUS &
+\texttt{+} &
+\texttt{+} \\
+
+SEMICOLON &
+\texttt{;} &
+\texttt{;} \\
+\bottomrule
+\end{tabular}
+\caption{Especificación léxica inicial del lenguaje}
+\label{tab:tokens}
+\end{table}
+
+Nótese que la columna ``patrón'' de la tabla \ref{tab:tokens} \textbf{es, literalmente}, lo que
+se escribiría en la sección de definiciones de tokens de un archivo de especificación de Flex:
+cada regla de Flex es, en esencia, un par (\textit{patrón} en forma de expresión regular,
+\textit{acción} en C que construye y devuelve el token correspondiente).
+
+Para el programa completo:
+
+\begin{lstlisting}
+int x = 10 + 20;
+\end{lstlisting}
+
+el analizador léxico produce la secuencia de tokens:
+
+\begin{lstlisting}
+INT
+IDENTIFIER(x)
+ASSIGN
+INTEGER(10)
+PLUS
+INTEGER(20)
+SEMICOLON
+\end{lstlisting}
+
+Los tokens que poseen un valor asociado (como los identificadores y los literales enteros)
+transportan esa información adicional, por ejemplo \texttt{IDENTIFIER(x)} o
+\texttt{INTEGER(10)}. El identificador también puede representarse mediante una referencia a
+una entrada de la tabla de símbolos, siguiendo la notación clásica del Libro del Dragón:
+
+\[
+(\,\mathbf{id},\ 1\,)
+\]
+
+donde $\mathbf{id}$ representa la categoría del token (identificador) y $1$ identifica la
+entrada correspondiente en la tabla de símbolos (sección \ref{sec:tabla-simbolos}).
+
+\subsection{Análisis sintáctico}
+\label{sec:sintactico}
+
+El análisis sintáctico, o \textit{parsing}, es la segunda fase del compilador. El analizador
+sintáctico (\textit{parser}) recibe la secuencia de tokens producida por el analizador léxico y
+\textbf{determina si esa secuencia puede derivarse} de acuerdo con la gramática del lenguaje,
+construyendo además una representación intermedia en forma de árbol —típicamente un
+\textbf{árbol sintáctico}— que describe la estructura gramatical del flujo de tokens.
+
+Mientras que el análisis léxico determina \textbf{qué} unidades aparecen en el programa, el
+análisis sintáctico determina \textbf{cómo} pueden combinarse esas unidades. Por lo tanto,
+responde a la pregunta:
+
+\begin{quote}
+\textit{¿Cómo se combinan los tokens para formar construcciones válidas del lenguaje?}
+\end{quote}
+
+Por ejemplo, la secuencia:
+
+\begin{lstlisting}
+INT IDENTIFIER ASSIGN INTEGER PLUS INTEGER SEMICOLON
+\end{lstlisting}
+
+corresponde a una declaración válida (\texttt{int x = 10 + 20;}), mientras que:
+
+\begin{lstlisting}
+INT IDENTIFIER ASSIGN PLUS INTEGER SEMICOLON
+\end{lstlisting}
+
+contiene tokens individualmente válidos, pero cuya organización \textbf{no} corresponde a
+ninguna construcción permitida por la gramática: es un \textbf{error sintáctico}.
+
+En un árbol sintáctico, cada \textbf{nodo interior} representa una operación, y los
+\textbf{hijos} de ese nodo representan sus argumentos. Esta representación en árbol es la que
+permite, por ejemplo, expresar de forma no ambigua la \textbf{precedencia de operadores}: para
+\texttt{10 + 20 * 3}, el árbol debe reflejar que la multiplicación se agrupa primero, de modo
+que la expresión se interprete como $10 + (20 \times 3)$ y no como $(10+20)\times 3$.
+
+\paragraph{Relevancia para Bison.} Esta es exactamente la fase que automatiza \textbf{Bison}: a
+partir de una \textbf{gramática libre de contexto} (una colección de reglas de producción como
+las de la sección \ref{sec:especificacion-sintactica}), Bison genera un analizador LALR capaz
+de reconocer si una secuencia de tokens es derivable desde el símbolo inicial de la gramática,
+y de ejecutar \textbf{acciones semánticas} asociadas a cada regla —típicamente, la construcción
+de nodos de un árbol de sintaxis abstracta—.
+
+\subsection{Especificación sintáctica}
+\label{sec:especificacion-sintactica}
+
+La sintaxis de un lenguaje de programación se especifica formalmente mediante una
+\textbf{gramática libre de contexto} (GLC). Una gramática de este tipo consiste en un conjunto
+de \textbf{símbolos no terminales} (categorías sintácticas, como $\langle expresion \rangle$),
+\textbf{símbolos terminales} (los tokens producidos por el analizador léxico) y
+\textbf{producciones} que indican cómo un no terminal puede reescribirse en una secuencia de
+terminales y no terminales.
+
+Para el lenguaje propuesto, una gramática inicial es:
+
+\begin{align*}
+\langle programa \rangle
+    &\rightarrow \langle declaracion \rangle \\[4pt]
+\langle declaracion \rangle
+    &\rightarrow
+    \langle tipo \rangle
+    \ \texttt{IDENTIFIER}
+    \ \texttt{ASSIGN}
+    \ \langle expresion \rangle
+    \ \texttt{SEMICOLON} \\[4pt]
+\langle tipo \rangle
+    &\rightarrow \texttt{INT} \\[4pt]
+\langle expresion \rangle
+    &\rightarrow
+    \langle expresion \rangle
+    \ \texttt{PLUS}
+    \ \langle termino \rangle \\[4pt]
+\langle expresion \rangle
+    &\rightarrow \langle termino \rangle \\[4pt]
+\langle termino \rangle
+    &\rightarrow \texttt{INTEGER}
+\end{align*}
+
+Esta gramática establece qué secuencias de tokens forman declaraciones y expresiones válidas.
+Nótese que la producción recursiva de $\langle expresion \rangle$ (que se refiere a sí misma
+del lado izquierdo, con \texttt{PLUS} como operador entre una expresión y un término) es lo que
+permite generar expresiones con una cantidad arbitraria de sumandos, y su forma
+\textbf{recursiva a izquierda} determina que \texttt{+} se agrupe de izquierda a derecha; el
+tratamiento riguroso de este tipo de ambigüedades y de la precedencia de operadores mediante
+gramáticas es, precisamente, uno de los temas centrales que veremos en la clase de gramáticas.
+
+Para el programa \texttt{int x = 10 + 20;}, el analizador sintáctico puede construir un árbol
+de derivación equivalente a:
+
+\begin{lstlisting}
+declaracion
+|-- tipo -> INT
+|-- IDENTIFIER -> x
+|-- ASSIGN -> =
+|-- expresion
+|   |-- expresion
+|   |   `-- termino
+|   |       `-- INTEGER -> 10
+|   |-- PLUS
+|   `-- termino
+|       `-- INTEGER -> 20
+`-- SEMICOLON
+\end{lstlisting}
+
+Esta estructura constituye una representación de la organización sintáctica del programa; es lo
+que en Bison se conoce como \textbf{árbol de derivación} o \textit{parse tree}, y suele ser más
+detallado (y más cercano a la gramática) de lo estrictamente necesario para las fases
+posteriores.
+
+\subsection{Árbol de sintaxis abstracta}
+\label{sec:ast}
+
+A partir del análisis sintáctico se puede construir un \textbf{árbol de sintaxis abstracta}
+(\textit{Abstract Syntax Tree}, AST). A diferencia del árbol de derivación completo, el AST
+\textbf{elimina detalles sintácticos} que no son necesarios para las fases posteriores (como
+paréntesis, palabras clave redundantes o nodos intermedios de la gramática) y conserva
+principalmente la \textbf{estructura semánticamente relevante} del programa.
+
+Para \texttt{int x = 10 + 20;}, un AST puede representarse como:
+
+\begin{lstlisting}
+Declaration
+|-- type: Int
+|-- name: x
+`-- value: BinaryExpression
+    |-- left: IntegerLiteral(10)
+    |-- operator: +
+    `-- right: IntegerLiteral(20)
+\end{lstlisting}
+
+El AST permite que las fases siguientes (análisis semántico, generación de código intermedio)
+trabajen sobre una representación estructurada del programa, en lugar de procesar directamente
+los caracteres del código fuente o los detalles superfluos del árbol de derivación.
+
+Además, la estructura del árbol permite representar propiedades sintácticas como la
+\textbf{precedencia de operadores}. Por ejemplo:
+
+\begin{lstlisting}
+10 + 20 * 3
+\end{lstlisting}
+
+debe interpretarse como $10 + (20 \times 3)$ y no como $(10+20)\times 3$. El AST representa esta
+diferencia mediante la \textbf{posición de los nodos dentro del árbol}: el nodo \texttt{*}
+queda anidado como hijo del nodo \texttt{+}, y no al revés.
+
+\paragraph{Relación con Bison.} En una especificación de Bison, la construcción del AST se
+realiza típicamente mediante \textbf{acciones semánticas} escritas en C, asociadas a cada regla
+de la gramática (por ejemplo, con el pseudo-código \texttt{\$\$ = nuevoNodoBinario(\$1, PLUS,
+\$3);} dentro de la regla que reconoce $\langle expresion \rangle \rightarrow \langle expresion
+\rangle\ \texttt{PLUS}\ \langle termino \rangle$). Esta técnica se conoce como
+\textbf{traducción dirigida por la sintaxis}, y es el mecanismo central que conecta la gramática
+formal con la construcción efectiva del AST en C.
+
+\subsection{Análisis semántico}
+\label{sec:semantico}
+
+El hecho de que un programa sea \textbf{sintácticamente correcto} no implica que sea
+\textbf{semánticamente válido}. El analizador semántico utiliza el árbol sintáctico (o el AST)
+y la información de la tabla de símbolos para comprobar restricciones que no pueden expresarse
+adecuadamente mediante una gramática libre de contexto —por ejemplo, que un identificador haya
+sido declarado antes de usarse, o que los tipos de una operación sean compatibles—.
+
+Una parte central del análisis semántico es la \textbf{comprobación (verificación) de tipos}:
+el compilador verifica que cada operador tenga operandos del tipo esperado. Cuando el lenguaje
+lo permite, pueden aplicarse \textbf{coerciones}, es decir, conversiones automáticas de tipo
+(por ejemplo, de \texttt{int} a \texttt{float}); volveremos sobre esto con un ejemplo completo
+en la sección \ref{sec:ejemplo-completo}.
+
+Por ejemplo:
+
+\begin{lstlisting}
+int x = "hola";
+\end{lstlisting}
+
+puede tener una estructura \textbf{sintácticamente válida}, ya que respeta la forma general
+\textit{tipo, identificador, asignación, expresión} exigida por la gramática, pero es
+\textbf{semánticamente incorrecta}, porque una cadena no puede asignarse a una variable de tipo
+\texttt{int}.
+
+Para una declaración genérica \texttt{int x = e;} podemos establecer las siguientes reglas
+semánticas:
+
+\begin{enumerate}
+    \item $x$ debe ser un identificador válido.
+    \item $x$ no debe haber sido declarado previamente en el mismo ámbito.
+    \item La expresión $e$ debe producir un valor de tipo \texttt{int} (o un tipo que pueda
+    coercionarse a \texttt{int}).
+    \item El valor producido por $e$ se asigna a $x$.
+    \item $x$ queda registrada en la tabla de símbolos como una variable de tipo \texttt{int}.
+\end{enumerate}
+
+Para la expresión \texttt{10 + 20} se puede determinar:
+
+\[
+10 : \texttt{int} \qquad 20 : \texttt{int} \qquad 10 + 20 : \texttt{int}
+\]
+
+Por lo tanto, \texttt{int x = 10 + 20;} es semánticamente válida.
+
+\subsection{Tabla de símbolos}
+\label{sec:tabla-simbolos}
+
+La \textbf{tabla de símbolos} es una estructura de datos utilizada por distintas fases del
+compilador para almacenar información sobre los nombres (identificadores) que aparecen en el
+programa: variables, funciones, tipos, etc. \textbf{No} constituye necesariamente una fase
+independiente, sino un \textbf{servicio transversal} utilizado sobre todo durante el análisis
+semántico y, posteriormente, durante la generación de código.
+
+Entre los atributos que puede almacenar una entrada se encuentran:
+
+\begin{itemize}
+    \item nombre;
+    \item tipo;
+    \item ámbito (\textit{scope});
+    \item ubicación en memoria;
+    \item para funciones/procedimientos: número y tipo de parámetros, forma de pasaje (por
+    valor o por referencia) y tipo de retorno;
+    \item información adicional necesaria para la generación de código.
+\end{itemize}
+
+La estructura de datos debe diseñarse para permitir \textbf{buscar, insertar y actualizar} cada
+entrada con rapidez (típicamente mediante una tabla hash o un árbol balanceado).
+
+Para \texttt{int x = 10 + 20;} obtenemos:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ccc}
+\toprule
+\textbf{Nombre} & \textbf{Tipo} & \textbf{Ámbito} \\
+\midrule
+\texttt{x} & \texttt{int} & local \\
+\bottomrule
+\end{tabular}
+\caption{Ejemplo de tabla de símbolos}
+\label{tab:symbol-table}
+\end{table}
+
+Cuando el analizador léxico encuentra el lexema \texttt{x}, produce un token asociado a una
+entrada de esta tabla: \texttt{IDENTIFIER -> (id, 1)}. Las fases posteriores utilizan esta
+referencia para obtener toda la información disponible sobre el identificador, en lugar de
+volver a manipular directamente la cadena de caracteres \texttt{x}.
+
+\subsection{Manejo de errores}
+\label{sec:errores}
+
+El compilador también debe \textbf{detectar y comunicar} los errores que encuentre durante el
+procesamiento del programa. Los errores pueden aparecer en cualquier fase:
+
+\begin{itemize}
+    \item un carácter que no pertenece al lenguaje produce un \textbf{error léxico} (por
+    ejemplo, un símbolo no reconocido por ningún patrón);
+    \item una secuencia de tokens que no puede derivarse mediante la gramática produce un
+    \textbf{error sintáctico};
+    \item una operación incompatible con los tipos involucrados produce un \textbf{error
+    semántico}.
+\end{itemize}
+
+El manejo de errores es una actividad \textbf{transversal} a todo el proceso de compilación. El
+objetivo no es solamente detectar que existe un error, sino proporcionar información suficiente
+para que el programador pueda identificar su \textbf{ubicación} (por ejemplo, línea y columna) y
+su \textbf{naturaleza}. Tanto Flex como Bison ofrecen mecanismos básicos para esto: Flex puede
+reportar un carácter no reconocido por ningún patrón, y Bison invoca una rutina de manejo de
+error (habitualmente \texttt{yyerror}) cuando la secuencia de tokens no es derivable desde la
+gramática.
+
+\subsection{Generación de código intermedio}
+\label{sec:codigo-intermedio}
+
+Después del análisis, el compilador puede construir una o más \textbf{representaciones
+intermedias} (\textit{Intermediate Representation}, IR). Los árboles sintácticos (y el AST) son
+en sí mismos una forma de representación intermedia, utilizada durante el análisis sintáctico y
+semántico.
+
+Muchos compiladores generan además una representación intermedia de \textbf{más bajo nivel},
+similar a un lenguaje ensamblador abstracto para una máquina hipotética, que debe cumplir dos
+propiedades importantes: ser \textbf{fácil de producir} (a partir del AST) y \textbf{fácil de
+traducir} a la máquina destino. Una forma habitual de IR es el \textbf{código de tres
+direcciones}: una secuencia de instrucciones simples, con a lo sumo un operador y tres
+operandos por instrucción (cada operando puede actuar como un registro).
+
+Para \texttt{int x = 10 + 20;}, una representación intermedia sencilla podría ser:
+
+\begin{lstlisting}
+t1 = 10 + 20
+x = t1
+\end{lstlisting}
+
+La representación intermedia permite \textbf{separar el lenguaje fuente del lenguaje/arquitectura
+destino}: en lugar de generar directamente código específico de una máquina, el compilador
+representa las operaciones del programa de forma independiente de la plataforma. Esto es
+justamente lo que aprovecharemos al usar \textbf{C como lenguaje destino} (sección
+\ref{sec:c-destino}): nuestro back-end sólo necesita traducir la IR a C, y delegamos en el
+compilador de C el trabajo de generar el código específico de cada arquitectura.
+
+\subsection{Optimización de código}
+\label{sec:optimizacion}
+
+Una vez construida la representación intermedia, pueden aplicarse transformaciones que
+\textbf{preserven el significado} del programa mientras mejoran alguna de sus propiedades:
+tiempo de ejecución, tamaño del código generado o consumo de energía, entre otras.
+
+Por ejemplo:
+
+\begin{lstlisting}
+t1 = 10 + 20
+x = t1
+\end{lstlisting}
+
+puede transformarse en:
+
+\begin{lstlisting}
+x = 30
+\end{lstlisting}
+
+Esta transformación, en la que una expresión constante se evalúa en tiempo de compilación, se
+conoce como \textbf{plegado de constantes} (\textit{constant folding}). Las optimizaciones
+pueden aplicarse sobre expresiones, instrucciones, flujo de control o el uso de valores
+temporales, entre muchos otros aspectos.
+
+Es fundamental notar que la optimización \textbf{no modifica el significado observable} del
+programa: su único objetivo es obtener una representación equivalente que se ejecute de manera
+más eficiente. Esta fase es \textbf{opcional} y su alcance varía mucho entre compiladores.
+
+\subsection{Generación de código destino}
+\label{sec:generacion-codigo}
+
+La última fase principal del compilador transforma la representación intermedia (optimizada o
+no) en el \textbf{lenguaje destino}. En un compilador tradicional, esto suele ser lenguaje
+ensamblador o código máquina de una arquitectura concreta; en nuestro caso, como se detalla en
+la sección \ref{sec:c-destino}, el lenguaje destino será \textbf{C}.
+
+Conceptualmente, esta fase debe resolver cuestiones como:
+
+\begin{itemize}
+    \item qué instrucciones (o construcciones del lenguaje destino) representan cada operación;
+    \item dónde almacenar los valores (registros, memoria, variables temporales);
+    \item qué registros utilizar (\textbf{asignación de registros}), cuando el destino es
+    código máquina;
+    \item cómo representar las estructuras de control;
+    \item cómo organizar la memoria necesaria en tiempo de ejecución.
+\end{itemize}
+
+\[
+\text{IR} \rightarrow \text{selección de instrucciones} \rightarrow \text{asignación de
+registros} \rightarrow \text{código destino}
+\]
+
+\subsection{Front-end y back-end}
+\label{sec:frontend-backend}
+
+Las fases del compilador pueden agruparse conceptualmente en dos grandes bloques.
+
+El \textbf{front-end} depende principalmente del \textbf{lenguaje fuente}. Sus responsabilidades
+incluyen:
+
+\begin{itemize}
+    \item análisis léxico (sección \ref{sec:lexico});
+    \item análisis sintáctico (sección \ref{sec:sintactico});
+    \item análisis semántico (sección \ref{sec:semantico});
+    \item generación de la representación intermedia (sección \ref{sec:codigo-intermedio}).
+\end{itemize}
+
+El \textbf{back-end} recibe la representación intermedia y se ocupa de transformarla en código
+del lenguaje destino, incluyendo las optimizaciones y las decisiones relacionadas con la
+generación de código.
+
+\[
+\text{Fuente} \rightarrow \boxed{\text{Front-end}} \rightarrow \text{IR} \rightarrow
+\boxed{\text{Back-end}} \rightarrow \text{Destino}
+\]
+
+Esta separación tiene una ventaja práctica enorme: permite que \textbf{distintos lenguajes
+fuente compartan un mismo back-end},
+
+\[
+\begin{array}{ccc}
+\text{Lenguaje A} & \rightarrow & \text{Front-end A} \\
+\text{Lenguaje B} & \rightarrow & \text{Front-end B}
+\end{array}
+\rightarrow
+\text{IR}
+\rightarrow
+\text{Back-end}
+\]
+
+o que un mismo front-end se combine con \textbf{distintos back-ends}:
+
+\[
+\text{Fuente}
+\rightarrow
+\text{Front-end}
+\rightarrow
+\text{IR}
+\rightarrow
+\begin{cases}
+\text{Back-end x86} \\
+\text{Back-end ARM}
+\end{cases}
+\]
+
+En nuestro proyecto de la materia, Flex y Bison nos ayudarán a construir precisamente el
+\textbf{front-end} (análisis léxico y sintáctico), mientras que nuestro back-end —más simple de
+lo habitual gracias a que el destino es C— se encargará de traducir la IR a código C válido.
+
+\subsection{Fases y pasadas}
+\label{sec:fases-pasadas}
+
+Es importante no confundir dos nociones distintas:
+
+\begin{itemize}
+    \item Las \textbf{fases} representan las distintas \textbf{tareas lógicas} que debe
+    realizar el compilador (léxico, sintáctico, semántico, generación de IR, optimización,
+    generación de código).
+    \item Una \textbf{pasada} es una recorrida completa sobre el programa (leyendo un archivo de
+    entrada y escribiendo un archivo de salida) durante la cual se ejecutan una o más fases.
+\end{itemize}
+
+Una implementación concreta puede, por ejemplo, agrupar el análisis léxico, sintáctico,
+semántico y la generación de IR en una \textbf{primera pasada}:
+
+\[
+\text{Fuente} \rightarrow \text{léxico} \rightarrow \text{sintáctico} \rightarrow
+\text{semántico} \rightarrow \text{IR}
+\]
+
+realizar la optimización como una \textbf{segunda pasada} (opcional):
+
+\[
+\text{IR} \rightarrow \text{IR optimizada}
+\]
+
+y finalmente generar el código destino en una \textbf{tercera pasada}:
+
+\[
+\text{IR optimizada} \rightarrow \text{código destino}
+\]
+
+En resumen: las \textbf{fases} describen \textit{qué} tareas conceptuales realiza el
+compilador; las \textbf{pasadas} describen \textit{cómo} se organiza su implementación. En
+nuestro compilador, es habitual que Flex y Bison colaboren dentro de una misma pasada: Bison
+(el analizador sintáctico) va pidiendo tokens a Flex (el analizador léxico) \textbf{a demanda},
+uno a la vez, en lugar de que Flex primero tokenice todo el archivo y luego Bison lo procese.
+
+\subsection{Herramientas para la construcción de compiladores}
+\label{sec:herramientas}
+
+Las distintas fases de un compilador pueden implementarse manualmente o mediante herramientas
+especializadas que generan automáticamente componentes a partir de especificaciones de alto
+nivel. Entre las más comunes:
+
+\begin{enumerate}
+    \item \textbf{Generadores de analizadores sintácticos (parsers)}, que producen
+    automáticamente analizadores sintácticos a partir de una \textbf{descripción gramatical} de
+    un lenguaje de programación. \textit{Ejemplo: Bison.}
+    \item \textbf{Generadores de escáneres (analizadores léxicos)}, que producen analizadores
+    léxicos a partir de una descripción de los tokens de un lenguaje mediante
+    \textbf{expresiones regulares}. \textit{Ejemplo: Flex.}
+    \item \textbf{Motores de traducción orientados a la sintaxis}, que producen rutinas para
+    recorrer el árbol sintáctico y generar código intermedio (esto es, en esencia, lo que
+    hacemos al escribir acciones semánticas en las reglas de Bison).
+    \item \textbf{Generadores de generadores de código}, que producen un generador de código a
+    partir de reglas para traducir cada operación del lenguaje intermedio al lenguaje/arquitectura
+    destino.
+    \item \textbf{Motores de análisis de flujo de datos}, utilizados para obtener información
+    sobre cómo se propagan los valores por el programa; son clave para muchas optimizaciones.
+    \item \textbf{Kits de construcción de compiladores}, que proporcionan un conjunto integrado
+    de componentes para implementar varias de estas tareas a la vez.
+\end{enumerate}
+
+Estas herramientas \textbf{no constituyen fases adicionales}: son mecanismos que facilitan la
+implementación de las fases que ya existen conceptualmente. Flex y Bison son, respectivamente,
+un generador de escáneres y un generador de parsers: no añaden ninguna fase nueva al esquema de
+la figura de la sección \ref{sec:proceso-completo}, sólo \textbf{automatizan} la construcción de
+las dos primeras.
+
+\subsection{Proceso completo}
+\label{sec:proceso-completo}
+
+El proceso completo puede resumirse de la siguiente manera:
+
+\[
+\boxed{
+\text{Fuente}
+\rightarrow
+\text{Análisis léxico}
+\rightarrow
+\text{Tokens}
+}
+\]
+
+\[
+\boxed{
+\text{Tokens}
+\rightarrow
+\text{Análisis sintáctico}
+\rightarrow
+\text{AST}
+}
+\]
+
+\[
+\boxed{
+\text{AST}
+\rightarrow
+\text{Análisis semántico}
+\rightarrow
+\text{AST validado}
+}
+\]
+
+\[
+\boxed{
+\text{AST validado}
+\rightarrow
+\text{Código intermedio}
+\rightarrow
+\text{Optimización}
+}
+\]
+
+\[
+\boxed{
+\text{IR optimizada}
+\rightarrow
+\text{Generación de código}
+\rightarrow
+\text{Código destino}
+}
+\]
+
+En cada una de estas fases intervienen estructuras auxiliares transversales, como la
+\textbf{tabla de símbolos} (sección \ref{sec:tabla-simbolos}) y los mecanismos de \textbf{manejo
+de errores} (sección \ref{sec:errores}).
+
+\section{Ejemplo completo: recorrido de una instrucción a través de todas las fases}
+\label{sec:ejemplo-completo}
+
+Para consolidar la relación entre todas las fases, es útil seguir un segundo ejemplo —clásico
+del Libro del Dragón— algo más rico que \texttt{int x = 10 + 20;}, porque permite ver en acción
+la \textbf{coerción de tipos} y una \textbf{optimización real}. Consideremos la instrucción de
+asignación:
+
+\begin{lstlisting}
+posicion = inicial + velocidad * 60
+\end{lstlisting}
+
+donde \texttt{posicion}, \texttt{inicial} y \texttt{velocidad} son variables de tipo
+\texttt{float}.
+
+\paragraph{1. Análisis léxico.} Los caracteres se agrupan en lexemas y se traducen a tokens:
+
+\[
+\langle \mathbf{id}, 1\rangle\ \langle = \rangle\ \langle \mathbf{id}, 2\rangle\ \langle +
+\rangle\ \langle \mathbf{id}, 3\rangle\ \langle * \rangle\ \langle 60 \rangle
+\]
+
+donde la entrada $1$ de la tabla de símbolos corresponde a \texttt{posicion}, la $2$ a
+\texttt{inicial} y la $3$ a \texttt{velocidad}. El lexema \texttt{60} da lugar, en rigor, a un
+token con su propia entrada en la tabla de símbolos para representar el entero.
+
+\paragraph{2. Análisis sintáctico.} A partir de esos tokens se construye un árbol sintáctico que
+refleja la precedencia usual de los operadores (la multiplicación se agrupa antes que la suma):
+
+\begin{lstlisting}
+=
+|-- <id,1>            (posicion)
+`-- +
+    |-- <id,2>        (inicial)
+    `-- *
+        |-- <id,3>    (velocidad)
+        `-- 60
+\end{lstlisting}
+
+El nodo raíz \texttt{=} indica que el resultado de la suma se almacena en la ubicación de
+\texttt{posicion}; el nodo \texttt{+} indica que primero debe sumarse \texttt{inicial} al
+resultado de la multiplicación; el nodo \texttt{*} indica que \texttt{velocidad} se multiplica
+por \texttt{60} \textbf{antes} de sumarse, en concordancia con las reglas usuales de precedencia
+aritmética.
+
+\paragraph{3. Análisis semántico.} Supongamos que \texttt{posicion}, \texttt{inicial} y
+\texttt{velocidad} están declaradas como \texttt{float}, mientras que el lexema \texttt{60} es,
+por sí solo, un entero. El comprobador de tipos detecta que el operador \texttt{*} se aplica a
+un \texttt{float} (\texttt{velocidad}) y a un \texttt{int} (\texttt{60}). Como el lenguaje
+permite la \textbf{coerción} de \texttt{int} a \texttt{float} en operaciones aritméticas
+mixtas, el analizador semántico inserta de manera explícita un operador de conversión
+\texttt{inttofloat} sobre el \texttt{60}. El árbol resultante incorpora entonces ese nodo
+adicional antes de pasar a la siguiente fase.
+
+\paragraph{4. Generación de código intermedio.} Usando código de tres direcciones, con una
+instrucción por cada operador del árbol (incluyendo la conversión de tipos), se obtiene:
+
+\begin{lstlisting}
+t1 = inttofloat(60)
+t2 = id3 * t1
+t3 = id2 + t2
+id1 = t3
+\end{lstlisting}
+
+Aquí \texttt{id1}, \texttt{id2} e \texttt{id3} son las referencias a las entradas de la tabla de
+símbolos de \texttt{posicion}, \texttt{inicial} y \texttt{velocidad}, respectivamente, y
+\texttt{t1}, \texttt{t2}, \texttt{t3} son nombres temporales generados por el compilador.
+Obsérvese que cada instrucción de tres direcciones tiene, como máximo, un operador del lado
+derecho, lo cual fuerza a explicitar el orden en el que se realizan las operaciones (la
+multiplicación queda calculada antes que la suma, tal como exigía el árbol sintáctico).
+
+\paragraph{5. Optimización de código.} El optimizador puede advertir que la conversión de
+\texttt{60} a \texttt{float} puede resolverse en tiempo de compilación, reemplazando el entero
+\texttt{60} por la constante \texttt{60.0}; también puede notar que \texttt{t3} se usa una
+única vez, así que su valor puede propagarse directamente a \texttt{id1}. El resultado es una
+secuencia más corta:
+
+\begin{lstlisting}
+t1 = id3 * 60.0
+id1 = id2 + t1
+\end{lstlisting}
+
+\paragraph{6. Generación de código destino.} Si el destino fuera código máquina, y se usaran los
+registros \texttt{R1} y \texttt{R2}, podría generarse:
+
+\begin{lstlisting}
+LDF  R2, id3
+MULF R2, R2, #60.0
+LDF  R1, id2
+ADDF R1, R1, R2
+STF  id1, R1
+\end{lstlisting}
+
+En nuestro proyecto, en cambio, el back-end no genera ensamblador ni código máquina: traduce la
+IR optimizada a \textbf{código C}, delegando la selección de instrucciones y la asignación de
+registros al compilador de C. Para la secuencia anterior, el back-end podría emitir algo
+equivalente a:
+
+\begin{lstlisting}
+float t1;
+t1 = velocidad * 60.0;
+posicion = inicial + t1;
+\end{lstlisting}
+
+Este recorrido completo —léxico, sintáctico, semántico (con coerción), IR, optimización y
+generación de código— es el mismo esquema que aplicaremos, en miniatura, a
+\texttt{int x = 10 + 20;} durante la práctica con Flex y Bison.
+
+\section{Uso de C como lenguaje destino}
+\label{sec:c-destino}
+
+En nuestro compilador se utilizará \textbf{C} como lenguaje destino. Esto significa que el
+compilador \textbf{no generará} directamente código máquina ni ensamblador: en su lugar,
+generará un programa escrito en C que representa las operaciones del lenguaje fuente. El
+proceso completo será:
+
+\[
+\begin{array}{c}
+\text{Lenguaje fuente}
+\rightarrow
+\text{Análisis léxico}
+\rightarrow
+\text{Análisis sintáctico}
+\rightarrow
+\text{Análisis semántico}
+\\[6pt]
+\downarrow \\[6pt]
+\text{IR}
+\rightarrow
+\text{Código C}
+\rightarrow
+\text{Compilador de C}
+\rightarrow
+\text{Código máquina}
+\end{array}
+\]
+
+El objetivo de nuestro back-end será, por lo tanto, traducir la representación intermedia a
+código C válido. Por ejemplo, si la IR contiene:
+
+\begin{lstlisting}
+t1 = 10 + 20
+x = t1
+\end{lstlisting}
+
+el back-end podría generar:
+
+\begin{lstlisting}
+int x;
+x = 10 + 20;
+\end{lstlisting}
+
+y será el compilador de C ya existente quien se encargue de las etapas necesarias para producir
+código específico de la plataforma final.
+
+Esta decisión simplifica considerablemente la construcción del back-end: los compiladores de C
+disponibles ofrecen optimizaciones maduras y soporte para múltiples arquitecturas, por lo que
+nuestro proyecto no necesita reimplementar instrucciones, registros ni convenciones específicas
+de cada arquitectura (lo que sí sería necesario si generáramos código máquina directamente).
+La utilización de C como lenguaje destino permite concentrar el esfuerzo del proyecto en el
+\textbf{diseño y procesamiento de nuestro propio lenguaje} —justamente, el front-end que
+construiremos con Flex y Bison— delegando en el compilador de C la generación final de código
+para la plataforma correspondiente.
+
+\section{De la teoría del Capítulo 1 a la práctica: bases para Flex y Bison}
+\label{sec:flex-bison}
+
+Esta sección conecta explícitamente los conceptos ya vistos con las herramientas que
+comenzaremos a usar mañana.
+
+\subsection{Expresiones regulares como patrones léxicos: la base de Flex}
+
+En la sección \ref{sec:lexemas-tokens-patrones} definimos un \textbf{patrón} como la regla que
+describe qué cadenas de caracteres pueden formar los lexemas de un token dado. El modelo formal
+estándar para expresar esas reglas de manera precisa y compacta son las \textbf{expresiones
+regulares}, apoyadas en el modelo de las \textbf{máquinas de estados finitos} (autómatas
+finitos). Estos son, junto con las gramáticas libres de contexto, de los modelos matemáticos
+más básicos usados en el diseño de compiladores.
+
+\textbf{Flex} es un \textbf{generador de analizadores léxicos}: recibe un archivo de
+especificación (típicamente \texttt{.l} o \texttt{.flex}) formado por una lista de pares
+\textit{(expresión regular, acción en C)}, y genera automáticamente el código C de una función
+(\texttt{yylex()}) que:
+
+\begin{enumerate}
+    \item lee el flujo de caracteres del programa fuente;
+    \item en cada paso, encuentra el \textbf{lexema más largo} que coincide con alguno de los
+    patrones especificados (la llamada regla de la \textit{coincidencia más larga});
+    \item ejecuta la acción en C asociada, que típicamente construye y devuelve el
+    \textbf{token} correspondiente —exactamente el par $\langle \text{nombre-token},
+    \text{valor-atributo} \rangle$ descrito en la sección \ref{sec:lexico}—;
+    \item ignora (o trata especialmente) los espacios en blanco, tal como hace cualquier
+    analizador léxico.
+\end{enumerate}
+
+En otras palabras: \textbf{todo lo que hicimos ``a mano'' en la sección \ref{sec:lexico}
+(agrupar caracteres en lexemas, asignarles una categoría) es exactamente lo que Flex
+automatiza}, a partir de una tabla de patrones como la de la tabla \ref{tab:tokens}.
+
+\subsection{Gramáticas libres de contexto y árboles sintácticos: la base de Bison}
+
+En la sección \ref{sec:especificacion-sintactica} vimos que la sintaxis de un lenguaje se
+especifica mediante una \textbf{gramática libre de contexto}: un conjunto de producciones que
+indican cómo se combinan los tokens (símbolos terminales) y las categorías sintácticas
+(símbolos no terminales) para formar construcciones válidas.
+
+\textbf{Bison} es un \textbf{generador de analizadores sintácticos}: recibe un archivo de
+especificación (típicamente \texttt{.y} o \texttt{.yacc}) formado por una gramática —muy similar
+en notación a la de la sección \ref{sec:especificacion-sintactica}— junto con \textbf{acciones
+semánticas} en C asociadas a cada producción, y genera automáticamente el código C de una
+función (\texttt{yyparse()}) capaz de:
+
+\begin{enumerate}
+    \item pedir tokens, uno a la vez, al analizador léxico generado por Flex (\texttt{yylex()});
+    \item determinar si la secuencia de tokens recibida es derivable desde el símbolo inicial de
+    la gramática, usando un algoritmo de análisis ascendente de tipo \textbf{LALR};
+    \item ejecutar, en cada reducción de una producción, la acción semántica en C asociada —lo
+    que en la sección \ref{sec:ast} llamamos \textbf{traducción dirigida por la sintaxis}—,
+    típicamente para construir un nodo del \textbf{árbol de sintaxis abstracta};
+    \item reportar un error sintáctico (invocando \texttt{yyerror}) cuando ninguna producción de
+    la gramática permite continuar el análisis.
+\end{enumerate}
+
+Es decir: \textbf{todo lo que hicimos ``a mano'' en las secciones \ref{sec:sintactico} y
+\ref{sec:ast} (construir el árbol sintáctico y luego el AST a partir de la gramática de la
+sección \ref{sec:especificacion-sintactica}) es exactamente lo que Bison automatiza}.
+
+\subsection{El flujo Flex + Bison y su correspondencia con las fases del compilador}
+
+En una implementación típica con estas herramientas, Flex y Bison \textbf{no se ejecutan como
+dos pasadas separadas}: Bison controla el proceso y pide tokens a Flex \textbf{bajo demanda},
+uno por vez, tal como se explicó en la sección \ref{sec:fases-pasadas}. La correspondencia con
+las fases del capítulo es directa:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Fase del compilador} & \textbf{Herramienta} & \textbf{Entrada / salida} \\
+\midrule
+Análisis léxico & Flex (\texttt{yylex}) & caracteres $\to$ tokens \\
+Análisis sintáctico & Bison (\texttt{yyparse}) & tokens $\to$ árbol / AST \\
+Traducción dirigida por la sintaxis & acciones en Bison & AST anotado \\
+Análisis semántico & código C del programador & AST validado \\
+\bottomrule
+\end{tabular}
+\caption{Correspondencia entre las fases del Capítulo 1 y el par Flex/Bison}
+\label{tab:flex-bison-fases}
+\end{table}
+
+En síntesis: \textbf{Flex y Bison automatizan el front-end} del compilador (secciones
+\ref{sec:lexico} a \ref{sec:codigo-intermedio}), pero \textbf{no reemplazan} el diseño
+conceptual que vimos en este capítulo: antes de escribir una sola línea de \texttt{.l} o
+\texttt{.y}, necesitamos tener claros los \textbf{patrones léxicos} (expresiones regulares) y la
+\textbf{gramática} de nuestro lenguaje, exactamente como se plantearon en las tablas y
+producciones de las secciones \ref{sec:lexemas-tokens-patrones} y
+\ref{sec:especificacion-sintactica}. Ese es, precisamente, el contenido que repasaremos en la
+clase de mañana antes de comenzar con la implementación.
+
+\section{Panorama complementario}
+
+\subsection{La evolución de los lenguajes de programación}
+
+Las primeras computadoras (década de 1940) se programaban directamente en \textbf{lenguaje
+máquina}. El desarrollo de los \textbf{lenguajes ensambladores}, a inicios de 1950, introdujo
+mnemónicos y, más adelante, macroinstrucciones. En la segunda mitad de esa década surgieron los
+primeros \textbf{lenguajes de alto nivel} (Fortran, Cobol, Lisp), pensados para que la
+programación fuera más natural en distintos dominios.
+
+Una clasificación habitual es por \textbf{generación}: 1\textsuperscript{a} generación
+(lenguaje máquina), 2\textsuperscript{a} (ensambladores), 3\textsuperscript{a} (lenguajes de
+alto nivel de propósito general, como C, C++, Java), 4\textsuperscript{a} (lenguajes de
+aplicación específica, como SQL) y 5\textsuperscript{a} (lenguajes basados en lógica y
+restricciones, como Prolog). Otra clasificación distingue lenguajes \textbf{imperativos}
+(especifican \textit{cómo} realizar un cálculo, con una noción explícita de estado, como C) de
+los \textbf{declarativos} (especifican \textit{qué} calcular, como los lenguajes funcionales o
+de lógica).
+
+Cada avance en los lenguajes de programación impuso nuevas exigencias sobre quienes escriben
+compiladores, que debieron idear algoritmos y representaciones para dar soporte a las nuevas
+características, aprovechando además la evolución de la arquitectura de las máquinas.
+
+\subsection{La ciencia de construir un compilador}
+
+El diseño de compiladores combina, de forma ejemplar, \textbf{teoría matemática} y
+\textbf{validación empírica}: se formula una abstracción matemática que capture las
+características clave de un problema (por ejemplo, autómatas finitos y expresiones regulares
+para el léxico, gramáticas libres de contexto para la sintaxis, árboles para representar
+programas) y se resuelve con técnicas matemáticas, refinando la solución con experimentación.
+
+Toda optimización de código debe cumplir ciertos objetivos de diseño, en orden de importancia:
+
+\begin{enumerate}
+    \item Debe ser \textbf{correcta}: preservar el significado del programa compilado. Este es,
+    con diferencia, el objetivo más importante: un compilador que genere código incorrecto no
+    sirve, sin importar qué tan rápido sea el código resultante.
+    \item Debe \textbf{mejorar el rendimiento} de una amplia variedad de programas de entrada.
+    \item El \textbf{tiempo de compilación} debe mantenerse razonable, para no entorpecer el
+    ciclo de desarrollo y depuración.
+    \item El \textbf{esfuerzo de ingeniería} requerido debe ser manejable.
+\end{enumerate}
+
+Vale la pena notar que muchos de los problemas centrales de la optimización de compiladores son
+\textbf{indecidibles} en general; por eso buena parte del trabajo consiste en formular
+heurísticas razonables, más que en buscar soluciones perfectas.
+
+\subsection{Aplicaciones de la tecnología de compiladores}
+
+Las técnicas desarrolladas para construir compiladores se aplican mucho más allá de la
+compilación de lenguajes de programación de propósito general. Algunos ejemplos mencionados en
+el capítulo:
+
+\begin{itemize}
+    \item \textbf{Traducción binaria}: convertir código máquina de una arquitectura a otra.
+    \item \textbf{Síntesis de hardware}: traducir descripciones en lenguajes como VHDL o Verilog
+    a circuitos concretos.
+    \item \textbf{Intérpretes de consultas de bases de datos}: compilar o interpretar lenguajes
+    como SQL.
+    \item \textbf{Simulación compilada}: compilar un diseño para simularlo mucho más rápido que
+    interpretándolo.
+    \item \textbf{Herramientas de productividad de software}: comprobación de tipos, análisis de
+    flujo de datos para detectar errores (referencias nulas, desbordamientos de buffer) y
+    herramientas de administración de memoria (por ejemplo, recolección de basura), todas ellas
+    apoyadas en técnicas de análisis de programas nacidas en el contexto de la optimización de
+    compiladores.
+\end{itemize}
+
+\section{Conclusión}
+
+A partir del modelo presentado en este capítulo, el desarrollo de nuestro compilador puede
+organizarse como una secuencia de etapas claramente diferenciadas.
+
+En primer lugar, debemos definir la \textbf{especificación léxica} del lenguaje: sus tokens,
+lexemas y patrones (expresiones regulares), que es exactamente lo que especificaremos en el
+archivo de Flex. Luego debemos establecer la \textbf{gramática} que determina cómo se combinan
+esos tokens, que es lo que especificaremos en el archivo de Bison, junto con las acciones
+semánticas que construyen el AST. Sobre esa estructura incorporaremos las \textbf{reglas
+semánticas} y la \textbf{tabla de símbolos} necesarias para validar los programas. Una vez
+definido el front-end, estableceremos una \textbf{representación intermedia} que exprese las
+operaciones del lenguaje de manera independiente del código C generado, y finalmente
+implementaremos el \textbf{back-end} encargado de traducir esa representación a C.
+
+De esta manera, el desarrollo seguirá la organización clásica de un compilador:
+
+\[
+\boxed{
+\text{Lenguaje}
+\rightarrow
+\text{Léxico}
+\rightarrow
+\text{Sintaxis}
+\rightarrow
+\text{Semántica}
+\rightarrow
+\text{IR}
+\rightarrow
+\text{C}
+}
+\]
+
+y, en la práctica concreta de la cátedra, las dos primeras flechas de ese esquema
+—\textbf{léxico} y \textbf{sintaxis}— son precisamente el territorio de \textbf{Flex} y
+\textbf{Bison}, las herramientas que comenzaremos a estudiar en la próxima clase.
+
+\end{document}
