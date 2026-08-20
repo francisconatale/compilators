@@ -1,0 +1,60 @@
+1. Extender la siguiente gram ́atica de expresiones con declaraci ́on de variables, asignaciones y uso de
+variables. Considere que las variables pueden ser de tipo entero (int) o l ́ogico (bool). Ademas, extienda
+la gramatica para permitir valores constantes logicos.
+P → E ;
+E → E + E
+| E ∗ E
+| ( E )
+| nro
+Se debe permitir una o mas declaraciones de variables de la forma int x; o bool aux1;. Es decir, cada
+declaracion consiste de la palabra reservada que indica el tipo, el nombre de una variable y finaliza con
+un valor de ;.
+Los nombres de variables deben comenzar con una letra y pueden seguir con una o mas letras o numeros.
+Por ultimo, el lenguaje permite una secuencia de sentencias: asignaciones y retornos de valores (sen-
+tencia return <expr> ; o return ;) en una  ́unica funci ́on main. La funcion main puede retornar un
+valor de tipo int, bool o no retornar un valor (void).
+Ejemplos de cadena del lenguaje:
+void main(){int x; int y; x = 1 ; y=1; x = x+3*2*y; }
+int main(){int x; int y; x = 1 ; x = x+3*2*y; return x; y = 4; x = 2; return y*2;}
+
+G:GLC = <V_N, V_T, P, S>
+V_N = {Program, FunctionReturnType, Code, Sentence, VariableDeclaration, VariableType, VariableId, IdRest, Char, Digit, VariableAssignment, Expression, Return}
+V_T = {main, (, ), {, }, void, int, bool, ;, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, 0, 1, 2, 
+        3, 4, 5, 6, 7, 8, 9, =, +, *, -, true, false, return, number}
+S = Program
+P = {
+    Program -> FunctionReturnType main () { Code }
+    FunctionReturnType -> void | int | bool 
+    Code -> Sentence Code | lambda 
+    Sentence -> VariableDeclaration | VariableAssignment | Return
+    VariableDeclaration -> VariableType VariableId ;
+    VariableType -> int | bool 
+    VariableId -> Char IdRest
+    IdRest -> Char IdRest | Digit IdRest | lambda
+    Char -> a | b | ... | z | A | B | ... | Z
+    Digit -> 0 | 1 | ... | 9
+    VariableAssignment -> VariableId = Expression ;
+    Expression -> Expression + Expression | Expression - Expression | Expression * Expression | ( Expression ) | number | true | false | VariableId
+    Return -> return Expression ; | return ;
+}
+
+2. De expresiones regulares que definan la estructura de las palabras reservadas, variables, los valores constantes, operadores y delimitadores del lenguaje del punto anterior.
+Alfabetos base 
+Char = a | b | ... | z | A | B | ... | Z
+Digit = 0 | 1 | ... | 9
+
+Variables 
+VariableId = Char . (Char | Digit)*
+
+Valores constantes
+Number = Digit+
+Boolean = true | false
+
+Palabras reservadas 
+ReservedWords = main | void | int | bool | return 
+
+Operadores 
+Operator = + | = | - | *
+
+Delimitadores 
+Delimiter = ( | ) | { | } | ;
