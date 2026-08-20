@@ -1,42 +1,73 @@
-## GRAMATICA INICIAL
+# Gramática Inicial
+
+```bnf
 p -> e
-e -> e+e | e*e | (e) | numero, donde numero [0-9]+
+e -> e+e | e*e | (e) | numero
+numero -> [0-9]+
+```
 
-cosas que se aceptan:
-12+(4), (12+12)*(4), (12*4+2), 2
+**Ejemplos de cadenas aceptadas:**
+- `12+(4)`
+- `(12+12)*(4)`
+- `(12*4+2)`
+- `2`
 
-## EXTENSION DE LA GRAMATICA
+---
 
-restricciones para la declaracion de variables:
-1. variables comienzan con letra y siguen con un numero
+# Extensión de la Gramática
 
-cosas que se aceptan:
-int a;, int a123;, bool a1;, bool a;
+## 1. Declaración de Variables
 
-cosas que no se aceptan:
-int 1;, int 1a;, bool 1a;, bool1;
+**Restricciones:**
+- Las variables deben comenzar con una letra y seguir con letras o números.
 
-regex propuesto:
-decl = (bool|int)[ \t]+[a-zA-z][a-zA-Z0-9]";"
-en flex deberia devolver un token decl;
+**Ejemplos de cadenas aceptadas:**
+- `int a;`
+- `int a123;`
+- `bool a1;`
+- `bool a;`
 
-2. returns
+**Ejemplos de cadenas no aceptadas:**
+- `int 1;`
+- `int 1a;`
+- `bool 1a;`
+- `bool1;`
 
-return; return a; return true; return false; return 1+1; return 1;
+**Expresión regular propuesta (para Lex/Flex):**
+```regex
+decl = (bool|int)[ \t]+[a-zA-Z][a-zA-Z0-9]*";"
+```
+*(En Flex debería devolver un token `decl`)*
 
-regex propuesto:
+## 2. Retornos (`return`)
+
+**Ejemplos de cadenas aceptadas:**
+- `return;`
+- `return a;`
+- `return true;`
+- `return false;`
+- `return 1+1;`
+- `return 1;`
+
+**Expresión regular propuesta:**
+```regex
 ret = "return"[ \t]+ e ";"
+```
+*(En Flex debería devolver un token `ret`)*
 
-en flex deberia devolver un token ret;
+---
 
-por lo tanto el lenguaje extendido viene dado por 
-gramatica inicial + 
-{boolean -> "true" | "false"
-type -> "bool"| "int"
-number -> 0 | ... | 9
-chars -> (a | ... | z)
-var_name -> (chars) (chars | number) +
-return -> "return" (var_name|boolean|number)
-decl -> bool var_name = boolean | int var_name = number+
-assign -> var_name "=" (numbers|chars|boolean)+
-}
+## Lenguaje Extendido Formalizado
+
+Por lo tanto, el lenguaje extendido viene dado por la **gramática inicial** más las siguientes reglas y definiciones:
+
+```bnf
+boolean  -> "true" | "false"
+type     -> "bool" | "int"
+number   -> 0 | 1 | ... | 9
+chars    -> a | b | ... | z | A | B | ... | Z
+var_name -> chars (chars | number)*
+return   -> "return" (var_name | boolean | number)? ";"
+decl     -> "bool" var_name "=" boolean | "int" var_name "=" number+
+assign   -> var_name "=" (number | chars | boolean)+
+```
