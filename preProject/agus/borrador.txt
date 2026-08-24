@@ -18,22 +18,18 @@ void main(){int x; int y; x = 1 ; y=1; x = x+3*2*y; }
 int main(){int x; int y; x = 1 ; x = x+3*2*y; return x; y = 4; x = 2; return y*2;}
 
 G:GLC = <V_N, V_T, P, S>
-V_N = {Program, FunctionReturnType, Code, Sentence, VariableDeclaration, VariableType, VariableId, IdRest, Char, Digit, VariableAssignment, Expression, Return}
+V_N = {Program, FunctionReturnType, Code, Sentence, VariableDeclaration, VariableType, VariableAssignment, Expression, Return}
 V_T = {main, (, ), {, }, void, int, bool, ;, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, 0, 1, 2, 
-        3, 4, 5, 6, 7, 8, 9, =, +, *, -, true, false, return, number}
+        3, 4, 5, 6, 7, 8, 9, =, +, *, -, true, false, return, number, variableId}
 S = Program
 P = {
     Program -> FunctionReturnType main () { Code }
     FunctionReturnType -> void | int | bool 
     Code -> Sentence Code | lambda 
     Sentence -> VariableDeclaration | VariableAssignment | Return
-    VariableDeclaration -> VariableType VariableId ;
+    VariableDeclaration -> VariableType variableId ;
     VariableType -> int | bool 
-    VariableId -> Char IdRest
-    IdRest -> Char IdRest | Digit IdRest | lambda
-    Char -> a | b | ... | z | A | B | ... | Z
-    Digit -> 0 | 1 | ... | 9
-    VariableAssignment -> VariableId = Expression ;
+    VariableAssignment -> variableId = Expression ;
     Expression -> Expression + Expression | Expression - Expression | Expression * Expression | ( Expression ) | number | true | false | VariableId
     Return -> return Expression ; | return ;
 }
