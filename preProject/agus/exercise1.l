@@ -26,7 +26,6 @@ NUMBER      {DIGIT}+
 "+"|"-"|"*"|"="             { return yytext[0]; }
 "("|")"|"{"|"}"|";"         { return yytext[0]; }
 
-"//".*                    { /* ignorar comentarios */ }
 [ \t\n]+                    { /* eliminar blancos */ }
 .                           { printf("Token invalido: %s\n", yytext); }
 

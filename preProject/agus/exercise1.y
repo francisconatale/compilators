@@ -16,39 +16,42 @@ void yyerror(const char *s) {
 
 %%
 
-// Agregamos una super-regla para permitir múltiples main en el mismo archivo
-TestSuite: TestSuite Program
-         | Program { printf("Analisis sintactico exitoso.\n"); }
-         ;
-
-Program: FunctionReturnType MAIN '(' ')' '{' Code '}'
+    Program
+    : FunctionReturnType MAIN '(' ')' '{' Code '}' { printf("Analisis sintactico exitoso.\n"); }
     ;
 
-FunctionReturnType: VOID
+    FunctionReturnType
+    : VOID
     | INT
     | BOOL
     ;
 
-Code: Sentence Code
+    Code
+    : Sentence Code
     | /* empty / lambda */
     ;
 
-Sentence: VariableDeclaration
+    Sentence
+    : VariableDeclaration
     | VariableAssignment
     | Return
     ;
 
-VariableDeclaration: VariableType ID ';'
+    VariableDeclaration
+    : VariableType ID ';'
     ;
 
-VariableType: INT
+    VariableType
+    : INT
     | BOOL
     ;
 
-VariableAssignment: ID '=' Expression ';'
+    VariableAssignment
+    : ID '=' Expression ';'
     ;
 
-Expression: Expression '+' Expression
+    Expression
+    : Expression '+' Expression
     | Expression '-' Expression
     | Expression '*' Expression
     | '(' Expression ')'
@@ -58,7 +61,8 @@ Expression: Expression '+' Expression
     | ID
     ;
 
-Return: RETURN Expression ';'
+    Return
+    : RETURN Expression ';'
     | RETURN ';'
     ;
 
