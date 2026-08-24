@@ -19,8 +19,7 @@ NUMBER      {DIGIT}+
 "int"                       { return INT; }
 "bool"                      { return BOOL; }
 "return"                    { return RETURN; }
-"true"                      { return TRUE_CONST; }
-"false"                     { return FALSE_CONST; }
+"true"|"false"              { return BOOL_CONST; }
 {ID}                        { return ID; }
 {NUMBER}                    { return NUMBER; }
 "+"|"-"|"*"|"="             { return yytext[0]; }

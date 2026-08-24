@@ -59,10 +59,9 @@ extern int yydebug;
     INT = 260,                     /* INT  */
     BOOL = 261,                    /* BOOL  */
     RETURN = 262,                  /* RETURN  */
-    TRUE_CONST = 263,              /* TRUE_CONST  */
-    FALSE_CONST = 264,             /* FALSE_CONST  */
-    ID = 265,                      /* ID  */
-    NUMBER = 266                   /* NUMBER  */
+    BOOL_CONST = 263,              /* BOOL_CONST  */
+    ID = 264,                      /* ID  */
+    NUMBER = 265                   /* NUMBER  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif

@@ -9,7 +9,7 @@ void yyerror(const char *s) {
 }
 %}
 
-%token MAIN VOID INT BOOL RETURN TRUE_CONST FALSE_CONST ID NUMBER
+%token MAIN VOID INT BOOL RETURN BOOL_CONST ID NUMBER
 
 %left '+' '-'
 %left '*'
@@ -56,8 +56,7 @@ void yyerror(const char *s) {
     | Expression '*' Expression
     | '(' Expression ')'
     | NUMBER
-    | TRUE_CONST
-    | FALSE_CONST
+    | BOOL_CONST
     | ID
     ;
 
