@@ -1,6 +1,7 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
+#include "ast.h"
 
 extern int yylex(void);
 extern FILE *yyin;
@@ -9,7 +10,20 @@ void yyerror(const char *s) {
 }
 %}
 
-%token MAIN VOID INT BOOL RETURN BOOL_CONST ID NUMBER
+%token MAIN VOID INT BOOL RETURN
+
+%union {
+  int intval;
+  char* strval;
+  struct ASTNode* node;
+}
+
+%token <strval> ID
+%token <intval> NUMBER
+%token <intval> BOOL_CONST
+
+%type <node> Program Code Sentence VariableDeclaration VariableAssignment Expression Return
+%type <intval> FunctionReturnType VariableType
 
 %left '+' '-'
 %left '*'
@@ -17,52 +31,55 @@ void yyerror(const char *s) {
 %%
 
     Program
-    : FunctionReturnType MAIN '(' ')' '{' Code '}' { printf("Analisis sintactico exitoso.\n"); }
+    : FunctionReturnType MAIN '(' ')' '{' Code '}' {
+    $$ = create_program_node($6);
+    printf("Analisis sintáctico exitoso y AST construido. \n");
+    }
     ;
 
     FunctionReturnType
-    : VOID
-    | INT
-    | BOOL
+    : VOID {$$ = 2;}
+    | INT {$$ = 0;}
+    | BOOL {$$ = 1;}
     ;
 
     Code
-    : Sentence Code
-    | /* empty / lambda */
+    : Sentence Code {$$ = create_statement_list_node($1, $2);}
+    | /* empty, lambda */ {$$ = NULL;}
     ;
 
     Sentence
-    : VariableDeclaration
-    | VariableAssignment
-    | Return
+    : VariableDeclaration {$$ = $1;}
+    | VariableAssignment {$$ = $1;}
+    | Return {$$ = $1;}
     ;
 
     VariableDeclaration
-    : VariableType ID ';'
+    : VariableType ID ';' {$$ = create_declaration_node($1, $2);}
     ;
 
     VariableType
-    : INT
-    | BOOL
+    : INT {$$ = 0;}
+    | BOOL {$$ = 1;}
     ;
 
     VariableAssignment
-    : ID '=' Expression ';'
+    : ID '=' Expression ';' {$$ = create_assignment_node($1, $3);}
     ;
 
     Expression
-    : Expression '+' Expression
-    | Expression '-' Expression
-    | Expression '*' Expression
-    | '(' Expression ')'
-    | NUMBER
-    | BOOL_CONST
-    | ID
+    : Expression '+' Expression {$$ = create_binop_node($1, '+', $3 );} // Los nros del 1 en adelante representan el nro de elemento que hallamos en la expresion: Exp + Exp es (Exp=1, + = 2, Exp=3)
+    | Expression '-' Expression {$$ = create_binop_node($1, '-', $3);}
+    | Expression '*' Expression {$$ = create_binop_node($1, '*', $3);}
+    | '(' Expression ')' {$$ = $2;} // Ignoramos los parentesis, pues el orden de precedencia queda definido en la estructura del arbol
+    | NUMBER {$$ = create_constant_node($1);}
+    | BOOL_CONST {$$ = create_constant_node($1);}
+    | ID {$$ = create_id_node($1);}
     ;
 
     Return
-    : RETURN Expression ';'
-    | RETURN ';'
+    : RETURN Expression ';' {$$ = create_return_node($2);}
+    | RETURN ';' {$$ = create_return_node(NULL);}
     ;
 
 %%
@@ -77,10 +94,10 @@ int main(int argc, char** argv) {
     } else {
         yyin = stdin;
     }
-    
+
     if (yyparse() == 0) {
         // Success handled in the rule
     }
-    
+
     return 0;
 }

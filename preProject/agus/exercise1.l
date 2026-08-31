@@ -1,5 +1,7 @@
 %{
 #include <stdio.h>
+#include <string.h>
+#include "ast.h"
 #include "exercise1.tab.h"
 
 int yywrap(void) {
@@ -19,9 +21,10 @@ NUMBER      {DIGIT}+
 "int"                       { return INT; }
 "bool"                      { return BOOL; }
 "return"                    { return RETURN; }
-"true"|"false"              { return BOOL_CONST; }
-{ID}                        { return ID; }
-{NUMBER}                    { return NUMBER; }
+"true"                      { yylval.intval = 1; return BOOL_CONST; }
+"false"                     { yylval.intval = 0; return BOOL_CONST; }
+{ID}                        { yylval.strval = strdup(yytext); return ID; }
+{NUMBER}                    { yylval.intval = atoi(yytext); return NUMBER; }
 "+"|"-"|"*"|"="             { return yytext[0]; }
 "("|")"|"{"|"}"|";"         { return yytext[0]; }
 

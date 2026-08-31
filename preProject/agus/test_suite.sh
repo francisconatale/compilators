@@ -3,7 +3,7 @@
 # compilo
 bison -d exercise1.y
 flex exercise1.l
-gcc exercise1.tab.c lex.yy.c -o parser
+gcc ast.c exercise1.tab.c lex.yy.c -o parser
 
 # pruebas
 echo ">> test 1: todo ok"

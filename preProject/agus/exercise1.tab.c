@@ -71,6 +71,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include "ast.h"
 
 extern int yylex(void);
 extern FILE *yyin;
@@ -78,7 +79,7 @@ void yyerror(const char *s) {
     fprintf(stderr, "Error sintactico: %s\n", s);
 }
 
-#line 82 "exercise1.tab.c"
+#line 83 "exercise1.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -114,9 +115,9 @@ enum yysymbol_kind_t
   YYSYMBOL_INT = 5,                        /* INT  */
   YYSYMBOL_BOOL = 6,                       /* BOOL  */
   YYSYMBOL_RETURN = 7,                     /* RETURN  */
-  YYSYMBOL_BOOL_CONST = 8,                 /* BOOL_CONST  */
-  YYSYMBOL_ID = 9,                         /* ID  */
-  YYSYMBOL_NUMBER = 10,                    /* NUMBER  */
+  YYSYMBOL_ID = 8,                         /* ID  */
+  YYSYMBOL_NUMBER = 9,                     /* NUMBER  */
+  YYSYMBOL_BOOL_CONST = 10,                /* BOOL_CONST  */
   YYSYMBOL_11_ = 11,                       /* '+'  */
   YYSYMBOL_12_ = 12,                       /* '-'  */
   YYSYMBOL_13_ = 13,                       /* '*'  */
@@ -522,9 +523,9 @@ static const yytype_int8 yytranslate[] =
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int8 yyrline[] =
 {
-       0,    20,    20,    24,    25,    26,    30,    31,    35,    36,
-      37,    41,    45,    46,    50,    54,    55,    56,    57,    58,
-      59,    60,    64,    65
+       0,    34,    34,    41,    42,    43,    47,    48,    52,    53,
+      54,    58,    62,    63,    67,    71,    72,    73,    74,    75,
+      76,    77,    81,    82
 };
 #endif
 
@@ -541,7 +542,7 @@ static const char *yysymbol_name (yysymbol_kind_t yysymbol) YY_ATTRIBUTE_UNUSED;
 static const char *const yytname[] =
 {
   "\"end of file\"", "error", "\"invalid token\"", "MAIN", "VOID", "INT",
-  "BOOL", "RETURN", "BOOL_CONST", "ID", "NUMBER", "'+'", "'-'", "'*'",
+  "BOOL", "RETURN", "ID", "NUMBER", "BOOL_CONST", "'+'", "'-'", "'*'",
   "'('", "')'", "'{'", "'}'", "';'", "'='", "$accept", "Program",
   "FunctionReturnType", "Code", "Sentence", "VariableDeclaration",
   "VariableType", "VariableAssignment", "Expression", "Return", YY_NULLPTR
@@ -568,11 +569,11 @@ yysymbol_name (yysymbol_kind_t yysymbol)
    STATE-NUM.  */
 static const yytype_int8 yypact[] =
 {
-      35,   -21,   -21,   -21,     3,     2,   -21,    -6,    -4,    -7,
-      24,   -21,   -21,    -8,     5,     6,    24,   -21,    12,   -21,
+      25,   -21,   -21,   -21,     3,     2,   -21,    -6,    -4,    -7,
+      33,   -21,   -21,    -8,     5,     6,    33,   -21,    13,   -21,
      -21,   -21,   -21,   -21,    18,   -21,     4,    18,   -21,   -21,
-      19,    23,    18,    18,    18,   -21,     7,   -21,   -21,    29,
-      29,   -21,   -21
+      24,    22,    18,    18,    18,   -21,     7,   -21,   -21,    23,
+      23,   -21,   -21
 };
 
 /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -582,7 +583,7 @@ static const yytype_int8 yydefact[] =
 {
        0,     3,     4,     5,     0,     0,     1,     0,     0,     0,
        7,    12,    13,     0,     0,     0,     7,     8,     0,     9,
-      10,    20,    21,    19,     0,    23,     0,     0,     2,     6,
+      10,    21,    19,    20,     0,    23,     0,     0,     2,     6,
        0,     0,     0,     0,     0,    22,     0,    11,    18,    15,
       16,    17,    14
 };
@@ -606,18 +607,18 @@ static const yytype_int8 yytable[] =
 {
       21,    22,    23,     6,    31,     7,    24,    36,     8,    10,
       25,     9,    39,    40,    41,    32,    33,    34,    32,    33,
-      34,    30,    35,    28,    27,    42,    21,    22,    23,    11,
-      12,    13,    24,    14,    32,    33,    34,    37,    38,     1,
-       2,     3,    34,    29
+      34,    30,    35,    28,    27,    42,    21,    22,    23,     1,
+       2,     3,    24,    32,    33,    34,    34,    38,    11,    12,
+      13,    14,    37,    29
 };
 
 static const yytype_int8 yycheck[] =
 {
        8,     9,    10,     0,    24,     3,    14,    27,    14,    16,
       18,    15,    32,    33,    34,    11,    12,    13,    11,    12,
-      13,     9,    18,    17,    19,    18,     8,     9,    10,     5,
-       6,     7,    14,     9,    11,    12,    13,    18,    15,     4,
-       5,     6,    13,    16
+      13,     8,    18,    17,    19,    18,     8,     9,    10,     4,
+       5,     6,    14,    11,    12,    13,    13,    15,     5,     6,
+       7,     8,    18,    16
 };
 
 /* YYSTOS[STATE-NUM] -- The symbol kind of the accessing symbol of
@@ -625,9 +626,9 @@ static const yytype_int8 yycheck[] =
 static const yytype_int8 yystos[] =
 {
        0,     4,     5,     6,    21,    22,     0,     3,    14,    15,
-      16,     5,     6,     7,     9,    23,    24,    25,    26,    27,
+      16,     5,     6,     7,     8,    23,    24,    25,    26,    27,
       29,     8,     9,    10,    14,    18,    28,    19,    17,    23,
-       9,    28,    11,    12,    13,    18,    28,    18,    15,    28,
+       8,    28,    11,    12,    13,    18,    28,    18,    15,    28,
       28,    28,    18
 };
 
@@ -1108,13 +1109,142 @@ yyreduce:
   switch (yyn)
     {
   case 2: /* Program: FunctionReturnType MAIN '(' ')' '{' Code '}'  */
-#line 20 "exercise1.y"
-                                                   { printf("Analisis sintactico exitoso.\n"); }
-#line 1114 "exercise1.tab.c"
+#line 34 "exercise1.y"
+                                                   {
+    (yyval.node) = create_program_node((yyvsp[-1].node));
+    printf("Analisis sintáctico exitoso y AST construido. \n");
+    }
+#line 1118 "exercise1.tab.c"
+    break;
+
+  case 3: /* FunctionReturnType: VOID  */
+#line 41 "exercise1.y"
+           {(yyval.intval) = 2;}
+#line 1124 "exercise1.tab.c"
+    break;
+
+  case 4: /* FunctionReturnType: INT  */
+#line 42 "exercise1.y"
+          {(yyval.intval) = 0;}
+#line 1130 "exercise1.tab.c"
+    break;
+
+  case 5: /* FunctionReturnType: BOOL  */
+#line 43 "exercise1.y"
+           {(yyval.intval) = 1;}
+#line 1136 "exercise1.tab.c"
+    break;
+
+  case 6: /* Code: Sentence Code  */
+#line 47 "exercise1.y"
+                    {(yyval.node) = create_statement_list_node((yyvsp[-1].node), (yyvsp[0].node));}
+#line 1142 "exercise1.tab.c"
+    break;
+
+  case 7: /* Code: %empty  */
+#line 48 "exercise1.y"
+                          {(yyval.node) = NULL;}
+#line 1148 "exercise1.tab.c"
+    break;
+
+  case 8: /* Sentence: VariableDeclaration  */
+#line 52 "exercise1.y"
+                          {(yyval.node) = (yyvsp[0].node);}
+#line 1154 "exercise1.tab.c"
+    break;
+
+  case 9: /* Sentence: VariableAssignment  */
+#line 53 "exercise1.y"
+                         {(yyval.node) = (yyvsp[0].node);}
+#line 1160 "exercise1.tab.c"
+    break;
+
+  case 10: /* Sentence: Return  */
+#line 54 "exercise1.y"
+             {(yyval.node) = (yyvsp[0].node);}
+#line 1166 "exercise1.tab.c"
+    break;
+
+  case 11: /* VariableDeclaration: VariableType ID ';'  */
+#line 58 "exercise1.y"
+                          {(yyval.node) = create_declaration_node((yyvsp[-2].intval), (yyvsp[-1].strval));}
+#line 1172 "exercise1.tab.c"
+    break;
+
+  case 12: /* VariableType: INT  */
+#line 62 "exercise1.y"
+          {(yyval.intval) = 0;}
+#line 1178 "exercise1.tab.c"
+    break;
+
+  case 13: /* VariableType: BOOL  */
+#line 63 "exercise1.y"
+           {(yyval.intval) = 1;}
+#line 1184 "exercise1.tab.c"
+    break;
+
+  case 14: /* VariableAssignment: ID '=' Expression ';'  */
+#line 67 "exercise1.y"
+                            {(yyval.node) = create_assignment_node((yyvsp[-3].strval), (yyvsp[-1].node));}
+#line 1190 "exercise1.tab.c"
+    break;
+
+  case 15: /* Expression: Expression '+' Expression  */
+#line 71 "exercise1.y"
+                                {(yyval.node) = create_binop_node((yyvsp[-2].node), '+', (yyvsp[0].node) );}
+#line 1196 "exercise1.tab.c"
+    break;
+
+  case 16: /* Expression: Expression '-' Expression  */
+#line 72 "exercise1.y"
+                                {(yyval.node) = create_binop_node((yyvsp[-2].node), '-', (yyvsp[0].node));}
+#line 1202 "exercise1.tab.c"
+    break;
+
+  case 17: /* Expression: Expression '*' Expression  */
+#line 73 "exercise1.y"
+                                {(yyval.node) = create_binop_node((yyvsp[-2].node), '*', (yyvsp[0].node));}
+#line 1208 "exercise1.tab.c"
+    break;
+
+  case 18: /* Expression: '(' Expression ')'  */
+#line 74 "exercise1.y"
+                         {(yyval.node) = (yyvsp[-1].node);}
+#line 1214 "exercise1.tab.c"
+    break;
+
+  case 19: /* Expression: NUMBER  */
+#line 75 "exercise1.y"
+             {(yyval.node) = create_constant_node((yyvsp[0].intval));}
+#line 1220 "exercise1.tab.c"
+    break;
+
+  case 20: /* Expression: BOOL_CONST  */
+#line 76 "exercise1.y"
+                 {(yyval.node) = create_constant_node((yyvsp[0].intval));}
+#line 1226 "exercise1.tab.c"
+    break;
+
+  case 21: /* Expression: ID  */
+#line 77 "exercise1.y"
+         {(yyval.node) = create_id_node((yyvsp[0].strval));}
+#line 1232 "exercise1.tab.c"
+    break;
+
+  case 22: /* Return: RETURN Expression ';'  */
+#line 81 "exercise1.y"
+                            {(yyval.node) = create_return_node((yyvsp[-1].node));}
+#line 1238 "exercise1.tab.c"
+    break;
+
+  case 23: /* Return: RETURN ';'  */
+#line 82 "exercise1.y"
+                 {(yyval.node) = create_return_node(NULL);}
+#line 1244 "exercise1.tab.c"
     break;
 
 
-#line 1118 "exercise1.tab.c"
+#line 1248 "exercise1.tab.c"
 
       default: break;
     }
@@ -1307,7 +1437,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 68 "exercise1.y"
+#line 85 "exercise1.y"
 
 
 int main(int argc, char** argv) {
@@ -1320,10 +1450,10 @@ int main(int argc, char** argv) {
     } else {
         yyin = stdin;
     }
-    
+
     if (yyparse() == 0) {
         // Success handled in the rule
     }
-    
+
     return 0;
 }

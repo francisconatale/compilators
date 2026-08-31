@@ -59,16 +59,27 @@ extern int yydebug;
     INT = 260,                     /* INT  */
     BOOL = 261,                    /* BOOL  */
     RETURN = 262,                  /* RETURN  */
-    BOOL_CONST = 263,              /* BOOL_CONST  */
-    ID = 264,                      /* ID  */
-    NUMBER = 265                   /* NUMBER  */
+    ID = 263,                      /* ID  */
+    NUMBER = 264,                  /* NUMBER  */
+    BOOL_CONST = 265               /* BOOL_CONST  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
-typedef int YYSTYPE;
+union YYSTYPE
+{
+#line 15 "exercise1.y"
+
+  int intval;
+  char* strval;
+  struct ASTNode* node;
+
+#line 80 "exercise1.tab.h"
+
+};
+typedef union YYSTYPE YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define YYSTYPE_IS_DECLARED 1
 #endif
