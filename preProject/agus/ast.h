@@ -37,9 +37,16 @@ typedef struct {
     ASTNode* expression;
 } ASTReturn;
 
+typedef enum {
+    OP_ADD,
+    OP_SUB,
+    OP_MUL,
+    OP_DIV
+} Operator;
+
 typedef struct {
     ASTNode* left;
-    char op;
+    Operator op;
     ASTNode* right;
 } ASTBinOp;
 
@@ -53,6 +60,7 @@ typedef struct {
 
 struct ASTNode {
     Node_Type type;
+    void (*free_node)(struct ASTNode*);
 
     union {
         ASTProgram       program;
@@ -71,7 +79,7 @@ ASTNode* create_statement_list_node(ASTNode* statement, ASTNode* next);
 ASTNode* create_declaration_node(int data_type, char* var_name);
 ASTNode* create_assignment_node(char* var_name, ASTNode* expression);
 ASTNode* create_return_node(ASTNode* expression);
-ASTNode* create_binop_node(ASTNode* left, char op, ASTNode* right);
+ASTNode* create_binop_node(ASTNode* left, Operator op, ASTNode* right);
 ASTNode* create_constant_node(int value);
 ASTNode* create_id_node(char* var_name);
 void free_ast(ASTNode* node);
