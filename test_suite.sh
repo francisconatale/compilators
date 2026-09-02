@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # compilo
-bison -d exercise1.y
-flex exercise1.l
-gcc ast.c exercise1.tab.c lex.yy.c -o parser
+bison -d grammar.y
+flex lexer.l
+gcc ast.c grammar.tab.c lex.yy.c -o parser
 
 # pruebas
 echo ">> test 1: todo ok"

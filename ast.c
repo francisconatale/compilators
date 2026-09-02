@@ -110,7 +110,6 @@ void free_binop_node(ASTNode* node) {
 }
 
 void free_constant_node(ASTNode* node) {
-    // Nothing to free
 }
 
 void free_id_node(ASTNode* node) {

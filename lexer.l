@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "ast.h"
-#include "exercise1.tab.h"
+#include "grammar.tab.h"
 
 int yywrap(void) {
     return 1;
