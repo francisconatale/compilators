@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "ast.h"
-#include "grammar.tab.h"
+#include "bison.tab.h"
 
 int yywrap(void) {
     return 1;
