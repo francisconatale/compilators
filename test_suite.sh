@@ -1,28 +1,16 @@
 #!/bin/bash
 
-# compilo
+# Generar archivos de bison y flex
 bison -d bison.y
 flex lexer.l
+
+# Compilar parser normal
 gcc ast.c bison.tab.c lex.yy.c -o parser
 
-# pruebas
-echo ">> test 1: todo ok"
-echo "void main() { int x; x = 1; }" | ./parser
+# Compilar tests con Unity
+echo "Compilando tests..."
+gcc -DUNITY_TESTING -I./tests/unity tests/unity/unity.c tests/test_parser.c ast.c bison.tab.c lex.yy.c -o test_runner
 
-echo ">> test 2: booleanos"
-echo "bool main() { bool a; a = true; return a; }" | ./parser
-
-echo ">> test 3: math"
-echo "void main() { int p; p = (2 + 3) * 4; }" | ./parser
-
-echo ">> test 4: error de sintaxis (asignar en la declaracion)"
-echo "void main() { int x = 1; }" | ./parser
-
-echo ">> test 5: falta ;"
-echo "void main() { int x }" | ./parser
-
-echo ">> test 6: no codigo "
-echo "void main(){}" | ./parser
-
-echo ">> test 7: sin funcion "
-echo "int x; x=1;" | ./parser
+# Ejecutar tests
+echo "Ejecutando tests con Unity..."
+./test_runner

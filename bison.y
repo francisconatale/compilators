@@ -84,6 +84,7 @@ void yyerror(const char *s) {
 
 %%
 
+#ifndef UNITY_TESTING // notacion que ignora la compilacion del main, ya que tiene que correr el main de la suite de tests
 int main(int argc, char** argv) {
     if (argc > 1) {
         yyin = fopen(argv[1], "r");
@@ -101,3 +102,4 @@ int main(int argc, char** argv) {
 
     return 0;
 }
+#endif

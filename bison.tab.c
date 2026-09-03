@@ -1440,6 +1440,7 @@ yyreturnlab:
 #line 85 "bison.y"
 
 
+#ifndef UNITY_TESTING
 int main(int argc, char** argv) {
     if (argc > 1) {
         yyin = fopen(argv[1], "r");
@@ -1457,3 +1458,4 @@ int main(int argc, char** argv) {
 
     return 0;
 }
+#endif

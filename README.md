@@ -219,7 +219,7 @@ En `ast.c` se implementan funciones que solicitan memoria mediante `malloc` e in
 
 ## 5. Integración entre Flex, Bison y el AST
 
-### 5.1. Flujo Léxico (`exercise1.l`)
+### 5.1. Flujo Léxico (`lexer.l`)
 1. Reconoce identificadores y duplica su cadena para persistir en memoria:
    ```lex
    {ID}        { yylval.strval = strdup(yytext); return ID; }
@@ -234,7 +234,7 @@ En `ast.c` se implementan funciones que solicitan memoria mediante `malloc` e in
    "false"     { yylval.intval = 0; return BOOL_CONST; }
    ```
 
-### 5.2. Flujo Sintáctico y Construcción (`exercise1.y`)
+### 5.2. Flujo Sintáctico y Construcción (`bison.y`)
 1. Declaración de tipos semánticos:
    ```bison
    %union {
@@ -297,36 +297,21 @@ El proceso de construcción y enlace se define mediante el script `test_suite.sh
 ```bash
 #!/bin/bash
 
-# 1. Generación del Parser (exercise1.tab.c y exercise1.tab.h)
-bison -d exercise1.y
+# 1. Generación del Parser (bison.tab.c y bison.tab.h)
+bison -d bison.y
 
 # 2. Generación del Scanner (lex.yy.c)
-flex exercise1.l
+flex lexer.l
 
-# 3. Compilación y enlazado con el módulo AST
-gcc ast.c exercise1.tab.c lex.yy.c -o parser
+# 3. Compilación y enlazado con el módulo AST (Parser normal)
+gcc ast.c bison.tab.c lex.yy.c -o parser
 
-# 4. Batería de pruebas
-echo ">> test 1: todo ok"
-echo "void main() { int x; x = 1; }" | ./parser
+# 4. Compilación y Ejecución de Batería de Pruebas (Unity)
+echo "Compilando tests..."
+gcc -DUNITY_TESTING -I./tests/unity tests/unity/unity.c tests/test_parser.c ast.c bison.tab.c lex.yy.c -o test_runner
 
-echo ">> test 2: booleanos"
-echo "bool main() { bool a; a = true; return a; }" | ./parser
-
-echo ">> test 3: math"
-echo "void main() { int p; p = (2 + 3) * 4; }" | ./parser
-
-echo ">> test 4: error de sintaxis (asignar en la declaracion)"
-echo "void main() { int x = 1; }" | ./parser
-
-echo ">> test 5: falta ;"
-echo "void main() { int x }" | ./parser
-
-echo ">> test 6: no codigo "
-echo "void main(){}" | ./parser
-
-echo ">> test 7: sin funcion "
-echo "int x; x=1;" | ./parser
+echo "Ejecutando tests con Unity..."
+./test_runner
 ```
 
 ---
