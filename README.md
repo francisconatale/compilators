@@ -297,21 +297,24 @@ El proceso de construcción y enlace se define mediante el script `test_suite.sh
 ```bash
 #!/bin/bash
 
-# 1. Generación del Parser (bison.tab.c y bison.tab.h)
-bison -d bison.y
+# 1. Creación del directorio
+mkdir -p build
 
-# 2. Generación del Scanner (lex.yy.c)
-flex lexer.l
+# 2. Generación del Parser (bison.tab.c y bison.tab.h) en build/
+bison -d bison.y -o build/bison.tab.c
 
-# 3. Compilación y enlazado con el módulo AST (Parser normal)
-gcc ast.c bison.tab.c lex.yy.c -o parser
+# 3. Generación del Scanner (lex.yy.c) en build/
+flex -o build/lex.yy.c lexer.l
 
-# 4. Compilación y Ejecución de Batería de Pruebas (Unity)
+# 4. Compilación y enlazado con el módulo AST (Parser normal) en build/
+gcc -I. -Ibuild ast.c build/bison.tab.c build/lex.yy.c -o build/parser
+
+# 5. Compilación y Ejecución de Batería de Pruebas (Unity)
 echo "Compilando tests..."
-gcc -DUNITY_TESTING -I./tests/unity tests/unity/unity.c tests/test_parser.c ast.c bison.tab.c lex.yy.c -o test_runner
+gcc -DUNITY_TESTING -I. -Ibuild -I./tests/unity tests/unity/unity.c tests/test_parser.c ast.c build/bison.tab.c build/lex.yy.c -o build/test_runner
 
 echo "Ejecutando tests con Unity..."
-./test_runner
+./build/test_runner
 ```
 
 ---
