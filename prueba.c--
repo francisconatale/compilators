@@ -1,7 +1,10 @@
-void main() {
-    int x;
-    int y;
-    x = 10;
-    y = x + 5 * 2;
-    return y;
+void main () {
+int jv; 
+int fran;
+int agus;
+
+jv = 10;
+fran = 10;
+agus = 5+1;
+return jv + fran + agus;
 }
