@@ -111,12 +111,6 @@ static int evaluate_expression(ASTNode* expr) {
                 case OP_ADD: return left_val + right_val;
                 case OP_SUB: return left_val - right_val;
                 case OP_MUL: return left_val * right_val;
-                case OP_DIV: 
-                    if (right_val == 0) {
-                        fprintf(stderr, "Error de Ejecucion: Division por cero.\n");
-                        exit(1);
-                    }
-                    return left_val / right_val;
             }
             break;
             
