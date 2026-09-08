@@ -1,10 +1,5 @@
 void main () {
-int jv; 
-int fran;
-int agus;
-
-jv = 10;
-fran = 10;
-agus = 5+1;
-return jv + fran + agus;
+    int x;
+    x = 2 + 3 * 4;
+    return x;
 }
