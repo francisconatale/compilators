@@ -44,3 +44,7 @@ Para ejecutar el compilador pasándole el código fuente de prueba (`prueba.c--`
 ```bash
 ./mi_compilador prueba.c--
 ```
+
+## Decisiones y progreso actual
+
+Se redacto un informe en /documentation/preproject.pdf profundizando el codigo fuente y lo realizado hasta el momento  
