@@ -1,79 +1,61 @@
-ltabla_offsets = mapa vacío (nombre -> offset)
-offset_actual = 0
+# Generación de Pseudo-Assembly (Código de 3 Direcciones)
 
-recorrer_prepass(nodo):
-    switch nodo.tipo:
-        caso DECLARACION:
-            offset_actual = offset_actual + 8
-            tabla_offsets[nodo.nombre] = offset_actual   // sobrescribe si ya existía
-        caso ASIGNACION:
-            // no declara nada, pero puede tener otra decl anidada si tu gramática lo permite
-            // normalmente no hace falta bajar a nodo.valor acá
-        default:
-            // BINOP, LITERAL, VARIABLE: no declaran nada, no se recursa en el pre-pass
+### 1. La regla de las "3 direcciones"
+Se llama así porque cada instrucción matemática está estrictamente limitada a tener, como máximo, tres operandos (direcciones de memoria o registros):
+* **Dos operandos de origen:** los que se van a calcular.
+* **Un operando de destino:** donde se guarda el resultado.
 
-para cada statement en AST.statements:
-    recorrer_prepass(statement)
+> **Ejemplo:** `SUM op1 op2 destino`
 
-total_bytes = offset_actual
-// total_bytes = round_up(total_bytes, 16)   // opcional, si hay calls
+Esta restricción es vital porque emula cómo funcionan las Unidades Aritmético Lógicas (ALU) en los procesadores reales. Básicamente, obliga al compilador a "masticar" ecuaciones gigantes en operaciones diminutas que la CPU pueda tragar de a una.
 
+### 2. Los actores del Pseudo-Assembly
+En los programas de nuestro C--, el pseudo-assembly va a escupir líneas donde interactúan tres tipos de "actores" (los operandos):
 
+* **Constantes (Números puros):** Valores literales que escribimos en el código (ej. `42` o `1`). En el futuro assembly real, se convertirán en valores "inmediatos" inyectados directo en la instrucción.
+* **Variables reales (`x`, `y`):** Son los nombres originales que pasaron la validación de nuestra tabla de símbolos. En esta etapa las llamamos por su nombre, pero en el assembly final (x86), el compilador las reemplazará por direcciones de memoria RAM reales (ej. `[RBP - 4]`).
+* **Variables temporales (`T1`, `T2`, `T3`...):** Son la magia del compilador. Son variables invisibles para quien programa en C--, creadas automáticamente para guardar resultados intermedios. En un procesador real, estos `T` representan los **registros de la CPU** (como `EAX`, `EBX`, `ECX`). Como la CPU tiene pocos registros, crear infinitos temporales nos permite armar la lógica sin preocuparnos por quedarnos sin memoria todavía.
 
-emitir("push rbp")
-emitir("mov rbp, rsp")
-emitir("sub rsp, " + total_bytes)
+### 3. El set de instrucciones (Operadores)
+Basado en nuestra gramática, el pseudo-assembly tiene un set de instrucciones muy conciso.
 
+**Instrucciones aritméticas (3 direcciones completas):**
+Toman dos valores, aplican la matemática y la guardan en el temporal.
+* `SUM left right T_res`
+* `RES left right T_res`
+* `MUL left right T_res`
 
-gen_expr(nodo):
-    switch nodo.tipo:
-        caso LITERAL:
-            emitir("mov rax, " + nodo.valor)
+**Instrucción de movimiento (2 direcciones):**
+No todas las instrucciones necesitan tres partes. La asignación usa solo dos: el origen (que puede ser un número, una variable o un temporal) y el destino final.
+* `ASIG origen destino` (ej: `ASIG T3 x`)
 
-        caso VARIABLE:
-            offset = tabla_offsets[nodo.nombre]
-            si offset no existe:
-                error("variable no declarada: " + nodo.nombre)
-            emitir("mov rax, [rbp-" + offset + "]")
+**Instrucciones de control (1 o 0 direcciones):**
+Sirven para cerrar la función.
+* `RETURN origen` (ej: `RETURN T4`)
+* `RETURN` (para retornos vacíos).
 
-        caso BINOP:
-            gen_expr(nodo.izq)          // resultado en rax
-            emitir("push rax")          // apilo el resultado de la izquierda
-            gen_expr(nodo.der)          // resultado en rax (pisa lo anterior)
-            emitir("mov rbx, rax")      // muevo el resultado de la derecha a rbx
-            emitir("pop rax")           // recupero el de la izquierda, apilado "debajo"
-            emitir(op_asm(nodo.operador) + " rax, rbx")
-            // resultado final de este subárbol queda en rax
+---
 
-        default:
-            error("nodo inesperado en expresión: " + nodo.tipo)
+### 4. Un ejemplo visual en C--
+Supongamos el siguiente código:
 
+```c
+int x;
+x = 2 + 3 * 4;
+return x;
+```
 
-// op_asm mapea el operador del nodo a la instrucción:
-op_asm(operador):
-    switch operador:
-        caso "+": return "add"
-        caso "-": return "sub"
-        caso "*": return "imul"
-        // "/" requiere manejo especial (idiv usa rdx:rax), ver nota abajo
+El AST arma el árbol y, gracias a las reglas de precedencia de Bison, sabe que el * está más abajo en el árbol que el +. Al recorrerlo con el módulo híbrido que armamos, el compilador generará esto en consola:
+```text
+MUL 3 4 T1
+SUM 2 T1 T2 
+ASIG T2 x 
+RETURN x
+```
 
+**¿Qué pasó acá?**
 
-gen_stmt(nodo):
-    switch nodo.tipo:
-        caso DECLARACION:
-            // nada, el offset ya fue reservado en el pre-pass
-            continuar
-
-        caso ASIGNACION:
-            offset = tabla_offsets[nodo.nombre]
-            gen_expr(nodo.valor)              // resuelve todo el árbol, deja resultado en rax
-            emitir("mov [rbp-" + offset + "], rax")
-
-para cada statement en AST.statements:
-    gen_stmt(statement)
-
-
-
-emitir("mov rsp, rbp")
-emitir("pop rbp")
-emitir("ret")
+1. Como la multiplicación tiene prioridad, el motor resolvió primero ese subárbol. Agarró las constantes `3` y `4`, operó e inventó `T1` para guardar el resultado (`12`).
+2. El motor subió un nivel en el árbol hacia la suma. Tomó la constante `2`, tomó el temporal `T1` que venía de abajo, operó, e inventó `T2` para guardar el nuevo resultado (`14`).
+3. El motor subió al nodo de asignación (`=`). Tomó el temporal final `T2` y lo movió a la memoria de la variable real `x`.
+4. Finalmente, ejecutó el retorno leyendo directamente `x`.
