@@ -146,6 +146,9 @@ NodeList *newNodeList(NodeAST *node, NodeList *next);
  */
 void attachChildren(NodeAST *parent, NodeList *list);
 
+NodeList *mergeNodeLists(NodeList *list1, NodeList *list2);
+NodeList *flattenVariableDeclarations(NodeAST *dataType, NodeList *identifiers);
+
 NodeAST *newLiteralNode(DataType type, const char *value);
 
 #endif /* AST_H */

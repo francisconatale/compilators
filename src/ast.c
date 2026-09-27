@@ -47,3 +47,34 @@ void attachChildren(NodeAST *parent, NodeList *list) {
     (void)list;
     /* TODO hernan jara */
 }
+
+NodeList *mergeNodeLists(NodeList *list1, NodeList *list2) {
+    if (list1 == NULL) return list2;
+    if (list2 == NULL) return list1;
+    
+    NodeList *current = list1;
+    while (current->next != NULL) {
+        current = current->next;
+    }
+    
+    current->next = list2;
+    return list1;
+}
+
+NodeList *flattenVariableDeclarations(NodeAST *dataType, NodeList *identifiers) {
+    NodeList *declarationList = NULL;
+    NodeList **tail = &declarationList;
+    NodeList *currentId = identifiers;
+    
+    while (currentId != NULL) {
+        NodeAST *individualDecl = newNode(VARIABLE_DECLARATION_NODE, NULL, dataType, currentId->node, NULL);        
+        NodeList *newCell = newNodeList(individualDecl, NULL);
+        
+        *tail = newCell;
+        tail = &newCell->next;
+        
+        currentId = currentId->next;
+    }
+    
+    return declarationList;
+}

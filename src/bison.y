@@ -42,49 +42,37 @@ NodeAST *raizAST = NULL;
 %left '*' '/' '%'  /* multiplicación, división, resto */
 %right NOT UMINUS  /* negación lógica ! y menos unario */
 
-%type <node> Program VariableDeclaration Statement Expression Type MethodCall Block
-%type <list> IdentifierList ListArguments VariableDeclarations Statements
+%type <node> Program Statement Expression Type MethodCall Block
+%type <list> VariableDeclaration IdentifierList ListArguments VariableDeclarations Statements
 
 %%
     Program
-    : Declarations
-    ;
-
-    VariableDeclarations
-    : /* empty */                               /* { $$ = NULL; } */
-    | VariableDeclaration VariableDeclarations  /* { $$ = newNodeList($1, $2); } */
+    : Declarations { $ = $1; } // wrapper de declarations
     ;
 
     Declarations
     : /* empty */
-    | Declaration Declarations
+    | Declaration Declarations { $ = newNodeList($1, $2); } // wrapper de variable/method, delega la resolucion del nodo y anida lo que resta resolver
     ;
 
     Declaration
-    : VariableDeclaration
-    | MethodDeclaration
+    : VariableDeclaration { $ = $1; } // 
+    | MethodDeclaration { $ = $1; }
     ;
-    
-    Type
-    : INT       /* { $$ = newNode(TYPE_NODE, newSymbol("int", NULL), NULL, NULL, NULL); $$->type = TYPE_INT; } */
-    | BOOLEAN   /* { $$ = newNode(TYPE_NODE, newSymbol("boolean", NULL), NULL, NULL, NULL); $$->type = TYPE_BOOL; } */
-    | FLOAT     /* { $$ = newNode(TYPE_NODE, newSymbol("float", NULL), NULL, NULL, NULL); $$->type = TYPE_FLOAT; } */
+
+
+    VariableDeclarations
+    : /* empty */                               /* { $$ = NULL; } */
+    | VariableDeclaration VariableDeclarations  /* { $$ = mergeNodeLists($1, $2); } */
     ;
 
     VariableDeclaration
     : Type IdentifierList ';' /* {
-        NodeAST *decl = newNode(VARIABLE_DECLARATION_NODE, NULL, $1, NULL, NULL);
-        attachChildren(decl, $2);
-        $$ = decl;
+        $$ = flattenVariableDeclarations($1, $2);
     } */
     ;
 
-    Statements
-    : /* empty */                  /* { $$ = NULL; } */
-    | Statement Statements         /* { $$ = newNodeList($1, $2); } */
-    ;
-
-    IdentifierList
+     IdentifierList
     : ID                /* { $$ = newNodeList(newNode(ID_NODE, newSymbol($1, NULL), NULL, NULL, NULL), NULL); } */
     | IdentifierList ',' ID      /* {
         NodeList *l = $1;
@@ -93,6 +81,22 @@ NodeAST *raizAST = NULL;
         $$ = $1;
     } */
     ;
+
+    
+    Type
+    : INT       /* { $$ = newNode(TYPE_NODE, newSymbol("int", NULL), NULL, NULL, NULL); $$->type = TYPE_INT; } */
+    | BOOLEAN   /* { $$ = newNode(TYPE_NODE, newSymbol("boolean", NULL), NULL, NULL, NULL); $$->type = TYPE_BOOL; } */
+    | FLOAT     /* { $$ = newNode(TYPE_NODE, newSymbol("float", NULL), NULL, NULL, NULL); $$->type = TYPE_FLOAT; } */
+    ;
+
+
+
+    Statements
+    : /* empty */                  /* { $$ = NULL; } */
+    | Statement Statements         /* { $$ = newNodeList($1, $2); } */
+    ;
+
+   
 
     Statement
     : ID '=' Expression ';' /* { $$ = newNode(ASSIGNMENT_NODE, newSymbol($1, NULL), newNode(ID_NODE, newSymbol($1, NULL), NULL, NULL, NULL), NULL, $3); } */
@@ -165,7 +169,7 @@ NodeAST *raizAST = NULL;
     : '{' VariableDeclarations Statements '}'
         /* {
         NodeAST *block = newNode(BLOCK_NODE, NULL, NULL, NULL, NULL);
-        attachChildren(block, mergeLists($2, $3));
+        attachChildren(block, mergeNodeLists($2, $3));
         $$ = block;
 } */
     ;
