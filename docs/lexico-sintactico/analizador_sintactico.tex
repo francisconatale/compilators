@@ -7,7 +7,7 @@
 \geometry{margin=2.5cm}
 
 \title{Analizador léxico y sintáctico de C-TDS \\ \large Diseño e interfaz del AST}
-\author{Agustin Alieni, Fran Natale y Julian Varea}
+\author{Agustin Alieni, Francisco Natale y Julian Varea}
 \date{}
 
 \begin{document}
@@ -16,109 +16,53 @@
 \section{Introducción}
 
 En esta etapa construimos el analizador léxico (\texttt{lexer.l}, con Flex) y
-el analizador sintáctico (\texttt{bison.y}, con Bison) de C-TDS, y dejamos
-definida la interfaz del árbol de sintaxis abstracta (AST) que va a sostener
-las etapas siguientes del compilador (análisis semántico, generación de
-código intermedio y, finalmente, assembly). En esta entrega no implementamos
-el AST: dejamos declarada su interfaz en \texttt{ast.h}, con los cuerpos de
-\texttt{ast.c} vacíos, y las acciones semánticas de la gramática comentadas,
-a la espera de que terminemos de cerrar en equipo algunas decisiones de
-diseño que todavía están abiertas.
-
-\section{División del trabajo}
-
-El trabajo de esta etapa se dividió en dos frentes, que avanzaron en paralelo
-y se integraron sobre el final:
-
-\begin{itemize}
-  \item \textbf{Analizador léxico}: definición y ajuste de las expresiones
-  regulares de \texttt{lexer.l} para cubrir todos los tokens de la
-  especificación, y de los mensajes de error léxico.
-  \item \textbf{Analizador sintáctico y AST}: diseño de la gramática de
-  \texttt{bison.y}, detección y resolución del conflicto shift/reduce
-  descripto en la Sección~\ref{sec:decisiones}, y diseño de la interfaz del
-  AST en \texttt{ast.h}.
-\end{itemize}
-
-Las decisiones de diseño más importantes (la resolución del conflicto
-shift/reduce y el criterio para el AST) se discutieron y acordaron en
-conjunto entre los tres integrantes antes de llevarlas al código, para no
-depender de que una sola persona las resolviera por su cuenta.
+el analizador sintáctico (\texttt{bison.y}, con Bison), y definimos la
+interfaz del árbol de sintaxis abstracta (AST) para las etapas posteriores.
+El AST todavía no está implementado: \texttt{ast.h} contiene su interfaz,
+\texttt{ast.c} tiene los cuerpos pendientes y las acciones semánticas de
+\texttt{bison.y} están comentadas.
 
 \section{Analizador léxico}
 
-El lexer reconoce todos los tokens que describe la especificación del
-lenguaje: las palabras reservadas (\texttt{boolean}, \texttt{int},
+El lexer reconoce las palabras reservadas (\texttt{boolean}, \texttt{int},
 \texttt{float}, \texttt{void}, \texttt{if}, \texttt{else}, \texttt{while},
-\texttt{return}), los identificadores, las constantes numéricas (enteras y de
-punto flotante), las constantes booleanas, los operadores aritméticos,
-relacionales y lógicos, los delimitadores, y los comentarios de línea y
-multilínea.
+\texttt{return}), identificadores, constantes numéricas y booleanas,
+operadores, delimitadores y comentarios.
 
 \subsection{\texttt{main} no es palabra reservada}
 
-Decidimos no tratar \texttt{main} como palabra reservada, a pesar de que el
-lenguaje exige que todo programa tenga un método con ese nombre. La razón es
-que esa exigencia es una regla semántica (debe existir un método llamado
-\texttt{main} con una firma particular), no una regla léxica ni sintáctica:
-en la gramática, \texttt{main} es simplemente el identificador de un método
-como cualquier otro. Si lo hubiéramos declarado como palabra reservada, un
-identificador de esa forma dejaría de poder usarse como nombre de variable o
-de cualquier otro método, lo cual no está pedido en ningún lado de la
-especificación. Por eso \texttt{main} matchea la regla general de
-\texttt{ID}, y la verificación de que exista un método \texttt{main} con la
-firma correcta queda para el análisis semántico.
+\texttt{main} se reconoce como un identificador. La exigencia de que exista
+un método \texttt{main} con una firma determinada es una regla semántica, por
+lo que su verificación queda para esa etapa.
 
-\subsection{Número de línea en los mensajes de error}
+\subsection{Número de línea}
 
-Activamos \texttt{\%option yylineno} y lo usamos tanto en los mensajes de
-error léxico del propio \texttt{lexer.l} como en \texttt{yyerror} del lado de
-Bison. Nos pareció imprescindible para que un mensaje de error sea útil: sin
-número de línea, encontrar dónde está el problema en un archivo fuente de
-varias decenas de líneas obliga a revisar todo el archivo a mano.
+Activamos \texttt{\%option yylineno} y usamos el número de línea en los
+errores léxicos y en \texttt{yyerror}.
 
-\section{Decisiones de diseño, asunciones y extensiones}
+\section{Decisiones de diseño}
 \label{sec:decisiones}
 
-\subsection{Un conflicto shift/reduce que nos obligó a rediseñar la gramática}
+\subsection{Declaraciones globales}
 
-La primera versión de la gramática que escribimos separaba las declaraciones
-globales en dos listas independientes, una para variables y otra para
-métodos:
+La primera versión separaba las declaraciones globales:
 
 \begin{verbatim}
 Program : VariableDeclarations MethodDeclarations ;
 \end{verbatim}
 
-Esta estructura calca directamente el orden en que aparecen en la letra los
-no terminales \texttt{$\langle$var\_decl$\rangle$} y
-\texttt{$\langle$method\_decl$\rangle$}, pero no funciona en la práctica: al
-probarla contra el programa de ejemplo de la propia especificación del
-lenguaje, que declara una variable global y a continuación un método con
-retorno no-\texttt{void},
+Esto producía un conflicto shift/reduce porque las declaraciones de variables
+y métodos comparten el prefijo \texttt{Type ID}. Por ejemplo:
 
 \begin{verbatim}
 int a;
 int sumar(int a, int b) { }
 \end{verbatim}
 
-el parser fallaba con un error de sintaxis apenas encontraba el segundo
-\texttt{int}. La causa es un conflicto de desplazamiento/reducción
-(shift/reduce) inherente a un parser LALR(1), que solo tiene un token de
-adelanto (lookahead) para decidir. Tanto una declaración de variable como una
-de método empiezan igual, con \texttt{Type ID}, y Bison, ante la duda,
-siempre prefiere desplazar antes que reducir: al ver el segundo \texttt{int}
-todavía dentro de \texttt{VariableDeclarations}, asumía que se trataba de otra
-variable y esperaba un \texttt{;} o una \texttt{,}. Como en cambio encontraba
-un \texttt{(}, la lista de variables nunca llegaba a cerrarse y el parser no
-tenía forma de retroceder para reinterpretar esa declaración como un método.
-En la práctica, esto significa que ningún método con tipo de retorno
-no-\texttt{void} lograba parsear si estaba precedido por al menos una
-variable global, lo cual invalidaba directamente el ejemplo de la letra.
+Al encontrar el segundo \texttt{int}, el parser no podía decidir todavía si
+debía reducir una declaración de variable o continuar hacia un método.
 
-La solución que aplicamos fue unificar ambas listas en una sola, dejando que
-la decisión de si \texttt{Type ID} arranca una variable o un método se tome
-recién al ver el token siguiente:
+Unificamos ambas listas:
 
 \begin{verbatim}
 Declarations
@@ -132,43 +76,23 @@ Declaration
     ;
 \end{verbatim}
 
-Con esta forma, el parser consume \texttt{Type ID} de manera neutra, sin
-comprometerse todavía a ninguna de las dos alternativas, y recién decide al
-ver el token siguiente: si es \texttt{;} o \texttt{,}, se trata de una
-variable; si es \texttt{(}, de un método. Esto permite además que variables y
-métodos aparezcan intercalados en el scope global, que es exactamente lo que
-hace el ejemplo de la letra. De paso, aprovechamos para sacar el no terminal
-intermedio \texttt{ReturnType} e integrar directamente \texttt{Type} y
-\texttt{VOID} en \texttt{MethodDeclaration}, para no introducir una reducción
-adicional que pudiera volver a confundir al parser en ese mismo punto.
+Así, variables y métodos pueden aparecer intercalados. También eliminamos el
+no terminal \texttt{ReturnType} e integramos \texttt{Type} y \texttt{VOID}
+directamente en \texttt{MethodDeclaration}.
+
+Verificamos la gramática con \texttt{bison -d -v}: el reporte no presenta
+conflictos shift/reduce ni reglas inalcanzables. También probamos el parser
+con el ejemplo de la especificación y con variantes que intercalan variables
+y métodos, incluyen condicionales, ciclos y llamadas a métodos.
 
 \subsection{Precedencia de operadores}
 
-Para resolver la precedencia y asociatividad de los operadores de
-\texttt{Expression} usamos las declaraciones \texttt{\%left} y
-\texttt{\%right} de Bison, siguiendo la tabla de precedencia de menor a mayor
-que se desprende de la especificación del lenguaje: disyunción lógica,
-conjunción lógica, igualdad, relacionales, suma y resta,
-multiplicación/división/resto, y por último la negación lógica y el menos
-unario. Optamos por esta vía declarativa en lugar de reescribir
-\texttt{Expression} como una jerarquía explícita de no terminales por nivel
-de precedencia (una alternativa habitual cuando no se cuenta con
-declaraciones de precedencia de la herramienta).
+Usamos \texttt{\%left} y \texttt{\%right} de Bison según la precedencia de la
+especificación: disyunción, conjunción, igualdad, relacionales, suma y resta,
+multiplicación/división/resto, y negación y menos unario.
 
-\paragraph{El menos unario y \texttt{\%prec UMINUS}.} El símbolo \texttt{-}
-cumple dos roles con precedencias distintas: la resta binaria (nivel de
-\texttt{+} y \texttt{-}) y el menos unario (nivel más alto, junto con
-\texttt{!}). El lexer no puede distinguirlos, porque ambos son el mismo
-carácter, así que siempre devuelve el mismo token \texttt{'-'}. Bison, por su
-parte, le asigna a cada regla la precedencia de su último terminal, por lo que
-la regla \texttt{'-' Expression} heredaba el nivel de la resta binaria. En
-consecuencia, al ver \texttt{-a * b} el parser prefería desplazar el
-\texttt{*} y agrupaba \texttt{-(a * b)}, en lugar de \texttt{(-a) * b} como
-indica la tabla de la especificación (lo mismo con \texttt{/} y \texttt{\%}).
-
-Para corregirlo declaramos un token ficticio \texttt{UMINUS} en el nivel más
-alto, que el lexer nunca devuelve y que existe solo para ocupar ese nivel de
-precedencia, y se lo asignamos a la regla con \texttt{\%prec}:
+El menos unario comparte el token \texttt{-} con la resta, pero tiene mayor
+precedencia. Para distinguir ambos casos usamos un token ficticio:
 
 \begin{verbatim}
 %right NOT UMINUS
@@ -176,265 +100,118 @@ precedencia, y se lo asignamos a la regla con \texttt{\%prec}:
     | '-' Expression %prec UMINUS
 \end{verbatim}
 
-Es el mecanismo estándar de Bison para la precedencia dependiente del contexto.
-Es la única regla de la gramática que lo necesita, porque \texttt{-} es el
-único token con dos roles: la regla \texttt{NOT Expression} no lo requiere,
-ya que su último terminal es \texttt{NOT}, que ya está en el nivel más alto.
-El cambio no modifica el conjunto de programas aceptados: solo determina cómo
-se agrupan las expresiones y, por lo tanto, la forma del árbol que construirán
-las acciones semánticas. Por eso conviene resolverlo en el parser y no
-posponerlo al AST, que hereda la agrupación en el orden en que Bison reduce.
+El lexer nunca devuelve \texttt{UMINUS}; solo se usa para asignar precedencia
+a esa regla.
 
-\subsection{Condición del \texttt{while} entre paréntesis}
+\subsection{Condición del \texttt{while}}
 
-En la gramática de la especificación, la sentencia \texttt{while} aparece como
-\texttt{while $\langle$expr$\rangle$ $\langle$block$\rangle$}, sin paréntesis
-alrededor de la condición, a diferencia del \texttt{if}. De acuerdo con lo
-hablado en clase, se trata de un error de la especificación, así que tomamos la
-condición del \texttt{while} entre paréntesis, igual que en el \texttt{if}:
+La especificación presenta \texttt{while} sin paréntesis, a diferencia de
+\texttt{if}. Según lo acordado en clase, lo modelamos con la condición entre
+paréntesis:
 
 \begin{verbatim}
     | WHILE '(' Expression ')' Block
 \end{verbatim}
 
-\subsection{Comentarios multilínea sin cerrar}
+\subsection{Comentarios multilínea}
 
-Asumimos, por el momento, que todo comentario multilínea que se abre en el
-código fuente se cierra correctamente. El caso de un comentario multilínea
-que nunca se cierra (el archivo termina dentro de un comentario abierto)
-queda señalado como algo pendiente de resolver en una iteración posterior del
-lexer, y se detalla en la Sección~\ref{sec:problemas}.
+Por el momento asumimos que los comentarios multilínea están correctamente
+cerrados. El caso contrario queda como problema conocido del lexer.
 
-\subsection{AST: solo interfaz en esta etapa}
-
-Decidimos, como extensión al alcance mínimo pedido para esta entrega, dejar
-completamente definida y documentada la interfaz del AST (\texttt{ast.h}),
-aunque no forma parte de lo exigido para el analizador sintáctico en sí. La
-justificación de esta decisión se desarrolla en la Sección~\ref{sec:ast}.
-
-\section{Descripción de diseño y justificación}
+\section{Diseño del AST}
 \label{sec:ast}
 
-\subsection{Alternativas consideradas para el conflicto shift/reduce}
+\subsection{Interfaz}
 
-Antes de llegar a la unificación de \texttt{Declarations}/\texttt{Declaration}
-descripta en la Sección~\ref{sec:decisiones}, consideramos dos alternativas
-que descartamos:
+Separamos el AST de \texttt{bison.y}: \texttt{ast.h} define sus tipos y
+funciones constructoras, mientras que \texttt{ast.c} contiene sus
+implementaciones.
 
-\begin{itemize}
-  \item \textbf{Aumentar el lookahead}: Bison genera parsers LALR(1), con un
-  solo token de adelanto; no hay forma de pedirle más lookahead sin cambiar
-  de herramienta o de clase de gramática, así que esta alternativa no era
-  viable con lex/yacc.
-  \item \textbf{Forzar el orden en la letra} (todas las variables antes que
-  los métodos): en teoría resolvía el conflicto, pero invalidaba el propio
-  ejemplo de programa que trae la especificación del lenguaje, que intercala
-  una variable y un método. La descartamos porque no es fiel al lenguaje que
-  tenemos que reconocer.
-\end{itemize}
+En esta etapa \texttt{ast.c} mantiene los cuerpos vacíos porque todavía no
+cerramos decisiones sobre manejo de memoria y sobre el uso de
+\texttt{left}/\texttt{mid}/\texttt{right} y \texttt{children[]}.
 
-La alternativa que aplicamos (unificar ambas listas en un único no terminal
-y diferir la decisión hasta ver el token siguiente a \texttt{Type ID}) es el
-patrón estándar para este tipo de ambigüedad de prefijo compartido en
-gramáticas LL/LALR, y es la que finalmente seleccionamos porque no exige
-tocar el lenguaje ni la herramienta, solo la forma en que factorizamos la
-gramática. La verificamos de dos formas: generando la gramática con
-\texttt{bison -d -v} y confirmando que el archivo de reporte no muestra
-ningún conflicto shift/reduce ni reglas inalcanzables (algo que sí aparecía
-con el diseño original), y compilando el parser completo contra Flex y la
-interfaz de AST para correrlo sobre el ejemplo de la letra y sobre variantes
-propias (variables intercaladas con métodos, condicionales anidados, ciclos,
-llamadas a método con y sin argumentos), confirmando que todos los casos
-válidos parsean sin errores formales.
-
-\subsection{Por qué separamos el AST de \texttt{bison.y}}
-
-Decidimos no definir la estructura del AST directamente en
-\texttt{bison.y}, sino en un archivo aparte, \texttt{ast.h}. La razón es que
-sobre este árbol todavía se va a construir el análisis semántico, un
-intérprete o generador de código intermedio, y finalmente el generador de
-assembly, y no queríamos que esas etapas dependieran de un archivo pensado en
-primer lugar para la gramática. Separar la interfaz del árbol en su propio
-header nos permite mantener \texttt{bison.y} enfocado en las reglas de
-producción y dejar la definición de los nodos como un contrato aparte, que
-cualquier etapa posterior puede incluir sin arrastrar nada de Bison.
-
-\subsection{Por qué \texttt{ast.h} solo tiene interfaz, y \texttt{ast.c} está vacío}
-
-Dentro de esa separación, distinguimos además interfaz de implementación:
-\texttt{ast.h} declara los tipos y las firmas de las funciones constructoras
-del árbol, documentando en comentarios qué hace cada una, quién es dueño de
-la memoria que devuelve y qué se espera de sus parámetros; \texttt{ast.c}
-contiene esas mismas funciones pero con el cuerpo vacío (un \texttt{TODO}).
-No las implementamos todavía porque hacerlo implica tomar decisiones de
-diseño que como equipo no terminamos de cerrar (por ejemplo, si el árbol va a
-liberar memoria a medida que se descarta, o cómo van a convivir exactamente
-los punteros \texttt{left}/\texttt{mid}/\texttt{right} con el arreglo
-\texttt{children[]} en los distintos tipos de nodo). Preferimos dejar esas
-firmas fijas y bien documentadas ahora, y resolver el cuerpo de cada función
-más adelante, cuando todo el equipo esté de acuerdo en cómo hacerlo, en lugar
-de que esa decisión quede tomada de forma implícita por quien haya escrito el
-primer código. Por eso en esta entrega \texttt{ast.h} es, en los hechos, toda
-la documentación de diseño del AST que tenemos: cada función está comentada
-con su propósito, sus parámetros y quién es responsable de liberar la memoria
-que devuelve, aunque todavía no haga nada.
-
-Por el mismo motivo dejamos las acciones semánticas de \texttt{bison.y}
-escritas pero comentadas: cada regla de la gramática indica, a modo de
-comentario, cómo se vería la construcción del nodo correspondiente una vez
-que el AST esté implementado (qué \texttt{NodeType} le corresponde, qué va en
-\texttt{left}/\texttt{mid}/\texttt{right} o en \texttt{children[]}), pero no
-se ejecuta ningún código todavía. Esto nos permitió dejar registrada, regla
-por regla, la intención de diseño de cada construcción del lenguaje sin
-depender de que \texttt{ast.c} ya esté terminado, y sin arriesgarnos a que el
-parser genere nodos a medio definir o haga referencias a memoria sin
-inicializar. Cuando decidamos avanzar con la implementación del AST, el
-trabajo va a consistir en completar los cuerpos de \texttt{ast.c} siguiendo
-lo que ya documentamos en \texttt{ast.h}, y recién ahí descomentar estas
-acciones.
+Las acciones semánticas de \texttt{bison.y} están escritas pero comentadas
+como referencia de cómo se construirá cada nodo.
 
 \subsection{Estructura de \texttt{NodeAST}}
 
-Cada nodo del árbol (\texttt{NodeAST}) tiene un \texttt{NodeType} que indica
-qué construcción del lenguaje representa, un \texttt{Symbol} opcional para
-guardar el identificador o el valor asociado, punteros \texttt{left},
-\texttt{mid} y \texttt{right} para los casos con una cantidad fija y chica de
-hijos (por ejemplo, una asignación o un \texttt{if-else}), y un arreglo
-\texttt{children[]} de tamaño variable para los casos donde la cantidad de
-hijos depende del programa fuente (por ejemplo, la lista de identificadores
-de una declaración de variables, o los argumentos de una llamada a método).
-El campo \texttt{type} guarda el tipo semántico del nodo (\texttt{TYPE\_INT},
-\texttt{TYPE\_BOOL}, etc.), separado de \texttt{nodeType} para no mezclar
-``qué construcción sintáctica es este nodo'' con ``qué tipo de dato tiene'', que
-son dos preguntas distintas y que además se resuelven en momentos distintos
-del proceso (la primera durante el parsing, la segunda recién en el análisis
-semántico).
+Cada \texttt{NodeAST} contiene:
 
-\subsection{Criterio para crear un nodo}
+\begin{itemize}
+  \item \texttt{nodeType}: construcción sintáctica representada.
+  \item \texttt{Symbol}: identificador o valor asociado, cuando corresponde.
+  \item \texttt{left}, \texttt{mid}, \texttt{right}: hijos para estructuras
+  con una cantidad fija y pequeña de elementos.
+  \item \texttt{children[]}: hijos de cantidad variable.
+  \item \texttt{type}: tipo semántico del nodo.
+\end{itemize}
 
-No decidimos crear un nodo por cada no terminal de la gramática, sino
-únicamente para las construcciones que aportan información propia o que
-cambian el comportamiento del árbol resultante. Hay no terminales que
-existen en la gramática solo para organizar la sintaxis (evitar ambigüedades,
-factorizar alternativas) pero que en el AST no necesitan representación
-propia: por ejemplo, \texttt{Statement} agrupa todas las variantes de
-sentencia posibles, pero el nodo real lo termina aportando la alternativa
-concreta que matcheó (una asignación, un \texttt{return}, un bloque), así que
-\texttt{Statement} simplemente redirige el valor de su hijo hacia
-\texttt{\$\$} sin crear un nodo nuevo. En cambio, \texttt{Block} sí tiene su
-propio \texttt{BLOCK\_NODE}, porque no es un simple contenedor sintáctico:
-representa la apertura de un nuevo scope y agrupa las declaraciones de
-variables y las sentencias que contiene, que sí son información real que el
-árbol necesita conservar.
+\texttt{type} se mantiene separado de \texttt{nodeType}: el primero representa
+el tipo de dato y el segundo la construcción sintáctica.
 
-\section{Detalles de implementación interesantes}
+\subsection{Criterio para crear nodos}
 
-\subsection{Resolución de la ambigüedad \texttt{Type ID}}
+No creamos un nodo para cada no terminal. Solo se representan construcciones
+que aportan información al AST. Por ejemplo, \texttt{Statement} agrupa
+alternativas y simplemente propaga el nodo de la alternativa elegida.
+\texttt{Block}, en cambio, tiene un nodo propio porque representa un scope y
+agrupa declaraciones y sentencias.
 
-El punto más particular de esta etapa es, en términos de implementación, la
-técnica usada para resolver la ambigüedad de prefijo compartido entre
-\texttt{VariableDeclaration} y \texttt{MethodDeclaration} (ver
-Sección~\ref{sec:decisiones}). No es un algoritmo en el sentido clásico, sino
-una técnica de factorización de gramáticas: en vez de que dos producciones
-alternativas empiecen ambas por los mismos símbolos y dejen que el parser
-``adivine'' cuál es, se las fusiona en una sola producción que consume el
-prefijo común y recién más adelante, con la gramática ya en un estado neutro,
-se bifurca según el símbolo siguiente. Es el mismo principio que la
-factorización por la izquierda en gramáticas LL, aplicado acá para evitarle
-al parser LALR(1) una decisión que no puede tomar con un solo token de
-adelanto.
+\subsection{Listas de hijos}
 
-\subsection{Listas de hijos mediante \texttt{NodeList}}
-
-Para los nodos con una cantidad variable de hijos (por ejemplo,
-\texttt{VariableDeclaration}, cuya cantidad de identificadores declarados no
-se conoce de antemano), la interfaz de \texttt{ast.h} separa dos
-responsabilidades: \texttt{NodeList} es una lista enlazada transitoria, que
-solo existe durante la construcción del árbol dentro de \texttt{bison.y} para
-ir acumulando nodos hermanos a medida que la gramática reduce reglas
-recursivas (\texttt{IdentifierList}, \texttt{VariableDeclarations},
-\texttt{Statements}); y \texttt{attachChildren} es la función encargada de
-volcar esa lista al arreglo \texttt{children[]} del nodo padre una única vez,
-dejando el AST final compuesto solo por \texttt{NodeAST}, sin rastros de la
-lista auxiliar. Elegimos este esquema en dos pasos (acumular en lista,
-después volcar a arreglo) en lugar de, por ejemplo, usar directamente un
-arreglo dinámico que se va agrandando durante el parsing, porque encaja mejor
-con la forma en que Bison arma los valores semánticos de abajo hacia arriba
-en reglas recursivas por la derecha.
+\texttt{NodeList} se usa durante el parsing para acumular hijos en reglas
+recursivas. \texttt{attachChildren} copia esa lista al arreglo
+\texttt{children[]} del nodo padre. El AST final queda compuesto por
+\texttt{NodeAST}, sin la lista auxiliar.
 
 \section{Testing}
 \label{sec:tests}
 
-Agregamos tests unitarios para el lexer y para el parser, en la carpeta
-\texttt{tests/}, usando el framework Unity. Se corren con
+Agregamos tests unitarios para lexer y parser en \texttt{tests/}, usando
+Unity. Se ejecutan con:
 
 \begin{verbatim}
 bash test_suite.sh
 \end{verbatim}
 
-\noindent que informa una línea \texttt{[PASS]} o \texttt{[FAIL]} por test.
-Cada test tiene un comentario que indica qué verifica.
+Los tests del lexer cubren tokens mal reconocidos, literales numéricos
+inválidos, operadores no permitidos, comentarios, símbolos inválidos y
+números de línea.
 
-En el lexer buscamos detectar tokens mal reconocidos: palabras reservadas
-confundidas con identificadores (mayúsculas o una palabra reservada pegada a
-otras letras), literales numéricos mal formados, operadores que no existen en
-C-TDS, comentarios que se cortan o no se ignoran, símbolos no permitidos y
-números de línea incorrectos.
+Los tests del parser verifican programas válidos e inválidos, incluyendo
+errores en punto y coma, llaves, firmas, sentencias, expresiones y
+paréntesis. También cubren la intercalación de variables y métodos globales.
 
-En el parser verificamos que se acepten los programas válidos según la
-gramática y que se rechacen los que tienen errores de sintaxis: falta de punto
-y coma, cuerpos sin llaves, declaraciones y firmas mal formadas, sentencias y
-expresiones inválidas, llaves o paréntesis desbalanceados. También cubren la
-intercalación de variables y métodos globales (Sección~\ref{sec:decisiones}),
-para detectar si ese cambio se rompe.
-
-Los tests solo verifican reglas léxicas y sintácticas: un programa que viola
-únicamente una regla semántica se espera aceptado. Tampoco verifican la
-precedencia de operadores, porque sin el AST el parser solo informa si acepta
-o rechaza la entrada.
+Los tests solo verifican reglas léxicas y sintácticas. No evalúan reglas
+semánticas ni la precedencia de operadores, porque el AST todavía no está
+implementado.
 
 \section{Problemas conocidos}
 \label{sec:problemas}
 
 \subsection{Comentario multilínea sin cerrar}
 
-\textbf{Detección}: al construir casos de test para el lexer, probamos
-deliberadamente un archivo fuente donde un comentario multilínea se abre con
-\texttt{/*} y el archivo termina sin el \texttt{*/} correspondiente. La
-expresión regular actual de \texttt{lexer.l} para comentarios multilínea
-exige que el cierre exista, así que en este caso no matchea ninguna regla de
-comentario.
+La expresión regular actual para comentarios multilínea requiere que exista
+el cierre \texttt{*/}. Si el archivo termina antes, el contenido se procesa
+con las reglas siguientes y se reportan errores léxicos sobre sus caracteres.
 
-\textbf{Caso de test}:
+Caso de test:
+
 \begin{verbatim}
 /* este comentario
 nunca se cierra
 int nuncaSeEjecuta;
 \end{verbatim}
 
-\textbf{Comportamiento actual}: como la regla de comentario no matchea (no
-hay \texttt{*/}), el lexer cae en las reglas siguientes y termina
-interpretando el contenido del comentario carácter por carácter, reportando
-cada símbolo dentro de él como error léxico, en lugar de señalar el problema
-real, que es que el comentario nunca se cerró.
-
-\textbf{Acción tomada}: identificamos el problema y la solución conceptual
-(introducir un estado exclusivo de Flex, por ejemplo \texttt{\%x COMMENT},
-que se entre al ver \texttt{/*} y se salga al ver \texttt{*/}, junto con una
-regla de \texttt{<<EOF>>} dentro de ese estado que reporte explícitamente
-``comentario no cerrado''), pero decidimos no aplicarla todavía en
-\texttt{lexer.l}. Queda pendiente para una iteración posterior del lexer.
+La solución prevista es usar un estado exclusivo de Flex, por ejemplo
+\texttt{\%x COMMENT}, y una regla \texttt{<<EOF>>} que informe que el
+comentario no fue cerrado. Queda pendiente de implementar.
 
 \subsection{Alcance de esta entrega}
 
-Del AST, en esta etapa solo dejamos definida la interfaz (\texttt{ast.h}) y
-las invocaciones ya escritas pero comentadas dentro de \texttt{bison.y}, a
-modo de referencia de cómo se va a construir cada nodo; los cuerpos de
-\texttt{ast.c} están vacíos. No es un problema en el sentido de algo que
-falle: es una decisión deliberada (ver Sección~\ref{sec:ast}), porque
-implementar el AST implica decisiones de diseño que todavía tenemos que
-cerrar como equipo. La próxima etapa consiste en completar los cuerpos de
-\texttt{ast.c} y descomentar las acciones semánticas de \texttt{bison.y} una
-vez que terminemos de acordar esos últimos detalles.
+El AST queda limitado a su interfaz en \texttt{ast.h}. Las implementaciones de
+\texttt{ast.c} y las acciones semánticas de \texttt{bison.y} quedan para la
+siguiente etapa, una vez cerradas las decisiones de diseño pendientes.
 
 \end{document}

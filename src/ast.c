@@ -283,7 +283,16 @@ NodeList *flattenVariableDeclarations(NodeAST *dataType, NodeList *identifiers) 
     
     while (currentId != NULL) {
         NodeAST *individualDecl = newNode(VARIABLE_DECLARATION_NODE, NULL, dataType, currentId->node, NULL);        
+        // Si newNode fallo, no seguimos armando la celda con un nodo fantasma, cortamos ahi y devolvemos lo q ya se armo hasta el momento
+        if (individualDecl == NULL) {
+            return declarationList;
+        }
+
         NodeList *newCell = newNodeList(individualDecl, NULL);
+        // Si newNodeList fallo, cortamos ahi y devolvemos lo q ya se armo hasta el momento
+        if (newCell == NULL) {
+            return declarationList;
+        }
         
         *tail = newCell;
         tail = &newCell->next;
