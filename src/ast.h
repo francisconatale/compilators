@@ -37,15 +37,23 @@ typedef struct Symbol {
  * para nodos con una cantidad variable de hijos (VARIABLE_DECLARATION_NODE, ver
  * IdList en bison.y). */
 typedef struct NodeAST {
-    Symbol *symbol;
-    struct NodeAST *left;
-    struct NodeAST *mid;
-    struct NodeAST *right;
-    DataType type;
     NodeType nodeType;
+    DataType type;
+    Symbol *symbol;
+    int line; /* Numero de linea para errores semanticos */
+    
     struct NodeAST **children;
     int childCount;
 } NodeAST;
+
+/* Macros de acceso para Nodos con Hijos Fijos (Suma, Resta, etc.) */
+#define GET_LEFT(node)  ((node)->childCount > 0 ? (node)->children[0] : NULL)
+#define GET_RIGHT(node) ((node)->childCount > 1 ? (node)->children[1] : NULL)
+
+/* Macros para el IF-ELSE */
+#define GET_CONDITION(node)  ((node)->childCount > 0 ? (node)->children[0] : NULL)
+#define GET_IF_BLOCK(node)   ((node)->childCount > 1 ? (node)->children[1] : NULL)
+#define GET_ELSE_BLOCK(node) ((node)->childCount > 2 ? (node)->children[2] : NULL)
 
 /* NodeList 
  * Lista enlazada auxiliar, usada solo durante la construccion del

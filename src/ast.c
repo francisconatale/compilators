@@ -18,11 +18,12 @@ Symbol *newSymbol(const char *id, const char *value) {
     return symbol;
 }
 
+extern int yylineno; // Para usar el numero de linea de flex
+
 /*
  * newNode
- * Crea un NodeAST dinámico (tipo por defecto TYPE_VOID, sin hijos).
- * El llamador es dueño del nodo. 'left', 'mid', 'right' y 'symbol'
- * quedan referenciados y el nodo asume su propiedad.
+ * Crea un NodeAST dinámico. 'left', 'mid' y 'right' se empaquetan
+ * en el arreglo 'children'.
  */
 NodeAST *newNode(NodeType nodeType, Symbol *symbol, NodeAST *left, NodeAST *mid, NodeAST *right) {
     NodeAST *node = malloc(sizeof(NodeAST));
@@ -30,12 +31,28 @@ NodeAST *newNode(NodeType nodeType, Symbol *symbol, NodeAST *left, NodeAST *mid,
 
     node->nodeType = nodeType;
     node->symbol = symbol;
-    node->left = left;
-    node->mid = mid;
-    node->right = right;
     node->type = TYPE_VOID;
-    node->children = NULL;
-    node->childCount = 0;
+    node->line = yylineno; // Guardamos la linea actual
+
+    // Empaquetamos left, mid, right en children
+    int count = 0;
+    NodeAST *temp[3];
+    if (left) temp[count++] = left;
+    if (mid) temp[count++] = mid;
+    if (right) temp[count++] = right;
+
+    if (count > 0) {
+        node->children = malloc(count * sizeof(NodeAST *));
+        if (node->children) {
+            for (int i = 0; i < count; i++) {
+                node->children[i] = temp[i];
+            }
+        }
+        node->childCount = count;
+    } else {
+        node->children = NULL;
+        node->childCount = 0;
+    }
 
     return node;
 }

@@ -47,17 +47,17 @@ NodeAST *raizAST = NULL;
 
 %%
     Program
-    : Declarations { $ = $1; } // wrapper de declarations
+    : Declarations { $$ = $1; } // wrapper de declarations
     ;
 
     Declarations
-    : /* empty */
-    | Declaration Declarations { $ = newNodeList($1, $2); } // wrapper de variable/method, delega la resolucion del nodo y anida lo que resta resolver
+    : /* empty */ { $$ = NULL; }
+    | Declaration Declarations { $$ = newNodeList($1, $2); } // wrapper de variable/method, delega la resolucion del nodo y anida lo que resta resolver
     ;
 
     Declaration
-    : VariableDeclaration { $ = $1; } // 
-    | MethodDeclaration { $ = $1; }
+    : VariableDeclaration { $$ = $1; } // 
+    | MethodDeclaration { $$ = $1; }
     ;
 
 
