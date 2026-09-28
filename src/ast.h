@@ -141,8 +141,7 @@ NodeList *newNodeList(NodeAST *node, NodeList *next);
  *
  * Dueño de la memoria:
  *   Las celdas de list dejan de ser necesarias una vez volcado su
- *   contenido a children[]; la implementacion decide si las libera
- *   aca o si eso queda a cargo del llamador.
+ *   contenido a children[], y se liberan aqui mismo
  */
 void attachChildren(NodeAST *parent, NodeList *list);
 
