@@ -77,11 +77,35 @@ NodeAST *newNode(NodeType nodeType, Symbol *symbol, NodeAST *left, NodeAST *mid,
     return node;
 }
 
+/*
+ * newNodeList
+ * -----------
+ * Crea (o extiende) una lista enlazada de nodos hermanos, usada
+ * unicamente durante la construccion del AST en bison.y.
+ *
+ * Parametros:
+ *   node - nodo a envolver en esta celda de la lista.
+ *   next - resto de la lista (NULL si este es el ultimo elemento).
+ *
+ * Devuelve:
+ *   Puntero a la nueva celda NodeList, con node y next asignados
+ *   tal cual se recibieron.
+ *
+ * Dueño de la memoria:
+ *   El llamador es dueño de la celda devuelta. Es una estructura
+ *   transitoria: no queda colgada del AST final (ver attachChildren).
+ */
 NodeList *newNodeList(NodeAST *node, NodeList *next) {
-    (void)node;
-    (void)next;
-    /* TODO hernan jara */
-    return NULL;
+    NodeList *list = malloc(sizeof(NodeList));
+    // Por si se queda sin memoria
+    if (list == NULL) {
+        return NULL;
+    }
+
+    list->node = node;
+    list->next = next;
+
+    return list;
 }
 
 NodeAST *newLiteralNode(DataType type, const char *value)
