@@ -1,50 +1,127 @@
-# Preproyecto
+# C-TDS Compiler
 
-Este preproyecto es el desarrollo de las primeras fases de un compilador para la materia de Compiladores. Implementa el análisis léxico, el análisis sintáctico, la tabla de símbolos y un intérprete que evalúa el código y genera sentencias de tres direcciones (pseudo-assembly).
+Compilador desde cero para C-TDS (TDS26), un lenguaje de programación
+imperativo simple, desarrollado como proyecto de la materia Taller de Diseño
+de Software (Cod. 3306).
 
-## Introducción
+El proyecto se aborda de forma incremental: esta primera entrega cubre el
+análisis léxico y sintáctico del lenguaje, usando Flex y Bison, junto con la
+interfaz del árbol de sintaxis abstracta (AST) que van a usar las próximas
+etapas.
 
-El compilador está compuesto por las siguientes etapas:
+## Autores
 
-- **Análisis Léxico**: Realizado con Flex, convierte el código fuente en tokens.
-- **Análisis Sintáctico**: Realizado con Bison, verifica la gramática y construye el AST.
-- **Análisis Semántico e Interpretación**: Recorre el AST validando variables contra la Tabla de Símbolos y evalúa las expresiones matemáticas.
+- Agustín Alieni
+- Fran Natale
+- Julián Varea
 
-## Estructura
+## Estado actual
 
-El código está organizado en los siguientes módulos:
+- **Análisis léxico** (`src/lexer.l`): reconoce todos los tokens del lenguaje
+  (palabras reservadas, identificadores, constantes numéricas y booleanas,
+  operadores, delimitadores y comentarios), con número de línea en los
+  mensajes de error.
+- **Análisis sintáctico** (`src/bison.y`): reconoce la gramática completa de
+  C-TDS (declaraciones de variables y métodos intercaladas, bloques,
+  condicionales, ciclos, llamadas a método, expresiones con precedencia de
+  operadores), sin conflictos shift/reduce ni reglas inalcanzables.
+- **AST** (`src/ast.h`, `src/ast.c`): por ahora solo está definida la
+  interfaz. Las firmas y la documentación de cada función están en
+  `src/ast.h`; los cuerpos en `src/ast.c` están vacíos a propósito, y las
+  acciones semánticas de `src/bison.y` están escritas pero comentadas, a la
+  espera de cerrar en equipo algunas decisiones de diseño antes de
+  implementarlas.
 
-- `lexer.l`: Definición de expresiones regulares y tokens.
-- `bison.y`: Reglas gramaticales y lógica de construcción del AST.
-- `ast.c` / `ast.h`: Definición de la estructura del árbol y manejo de memoria dinámica.
-- `symtab.c` / `symtab.h`: Implementación de la tabla de símbolos para el control de variables.
-- `interpreter.c` / `interpreter.h`: Funciones de evaluación del AST y generación de código intermedio.
-- `build.sh`: Script para automatizar la compilación con gcc.
-- `test_suite.sh`: Script para correr las pruebas unitarias.
+Los detalles y las decisiones de diseño de esta etapa (el conflicto
+shift/reduce que resolvimos, por qué separamos el AST de la gramática, el
+criterio para decidir cuándo un nodo se representa en el árbol, etc.) están
+documentados en
+[`docs/lexico-sintactico/analizador_sintactico.pdf`](docs/lexico-sintactico/analizador_sintactico.pdf).
 
-## Requisitos
+## Estructura del repositorio
 
-Para compilar y ejecutar el proyecto en un entorno Linux se necesita:
-- `gcc` 
-- `flex`
-- `bison`
-
-## Compilación y Uso
-
-Para construir el ejecutable principal, simplemente ejecuta el script de compilación provisto:
-
-```bash
-./build.sh
+```
+.
+├── src/
+│   ├── lexer.l                                      # Analizador léxico (Flex)
+│   ├── bison.y                                      # Analizador sintáctico (Bison)
+│   ├── ast.h                                        # Interfaz del AST
+│   └── ast.c                                        # Implementación del AST (pendiente)
+├── tests/                                           # Tests unitarios (Unity) de lexer y parser
+├── examples/                                        # Programas de ejemplo para probar rápido el compilador
+│   ├── programa.txt                                 # Programa válido con todas las construcciones
+│   ├── programa_con_error.txt                       # Programa con un error de sintaxis
+│   └── factorial.txt                                # Factorial recursivo (usado también en los tests)
+├── build.sh                                         # Compila el proyecto (ver Compilación)
+├── test_suite.sh                                    # Corre los tests (ver Tests)
+└── docs/
+    ├── spec/                                         # Enunciados de la cátedra (todo el proyecto)
+    ├── notas/                                        # Documentos internos del equipo
+    └── lexico-sintactico/                            # Documentación de esta etapa
+        ├── analizador_sintactico.pdf
+        └── notas/                                    # Notas de trabajo previas al documento final
 ```
 
-Esto generará los archivos de C a partir de Flex/Bison y compilará todo el proyecto. El binario resultante se llamará `mi_compilador` y se guardará en la raíz del proyecto.
+## Compilación
 
-Para ejecutar el compilador pasándole el código fuente de prueba (`prueba.c--`):
+Requisitos: `bison` (3.x), `flex` (2.6+) y `gcc`.
 
 ```bash
-./mi_compilador prueba.c--
+bash build.sh
 ```
 
-## Decisiones y progreso actual
+Genera el parser y el scanner en `build/` (`bison.tab.c`, `bison.tab.h`,
+`lex.yy.c`) y el ejecutable `./mi_compilador` en la raíz del repo. Hay que
+volver a correrlo cada vez que se modifica `src/lexer.l` o `src/bison.y`.
 
-Se redacto un informe en /documentation/preproject.pdf profundizando el codigo fuente y lo realizado hasta el momento  
+Los warnings de Bison del tipo `type clash on default action` son esperables:
+salen porque las acciones semánticas están comentadas hasta implementar el AST.
+
+## Uso
+
+```bash
+./mi_compilador examples/programa.txt          # analiza un archivo
+echo "void main(){ int x }" | ./mi_compilador  # o desde la entrada estándar
+```
+
+En `examples/` hay programas de ejemplo para probar rápidamente el compilador:
+uno válido que usa todas las construcciones de la gramática (`programa.txt`),
+uno con un error de sintaxis (`programa_con_error.txt`) y un factorial
+recursivo (`factorial.txt`).
+
+Si el programa es sintácticamente correcto imprime
+`--- Analisis sintactico sin errores formales. ---`. Si no, informa el error
+con su número de línea (`[Linea N] Error sintactico: ...` o
+`[Linea N] ERROR LEXICO: simbolo no permitido '...'`). El análisis se detiene
+en el primer error sintáctico.
+
+## Tests
+
+```bash
+bash test_suite.sh
+```
+
+Regenera Flex/Bison, compila y corre los tests unitarios (framework
+[Unity](https://github.com/ThrowTheSwitch/Unity), incluido en `tests/unity/`):
+
+- `tests/test_lexer.c`: tokens que devuelve `yylex()` (palabras reservadas,
+  identificadores, literales, operadores, comentarios, errores léxicos y
+  números de línea).
+- `tests/test_parser.c`: programas que `yyparse()` debe aceptar o rechazar
+  según la gramática de C-TDS.
+
+La salida muestra una línea `[PASS]`/`[FAIL]` por test. Si un test falla,
+se indica la línea del caso que falló y su programa:
+
+```
+  [FAIL] test_error_if_while_mal_formados
+         -> linea 215: deberia RECHAZAR: void main(){ while x < 3 { } }
+```
+
+El script termina con código 0 si todos los tests pasan y 1 si alguno falla o
+no compila. Para ver la salida cruda de Unity, junto con los warnings de Bison
+y los mensajes de error que imprime el compilador en los casos inválidos:
+
+```bash
+VERBOSE=1 bash test_suite.sh
+```

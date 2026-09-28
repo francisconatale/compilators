@@ -1,0 +1,217 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{geometry}
+\usepackage{verbatim}
+\geometry{margin=2.5cm}
+
+\title{Analizador léxico y sintáctico de C-TDS \\ \large Diseño e interfaz del AST}
+\author{Agustin Alieni, Francisco Natale y Julian Varea}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Introducción}
+
+En esta etapa construimos el analizador léxico (\texttt{lexer.l}, con Flex) y
+el analizador sintáctico (\texttt{bison.y}, con Bison), y definimos la
+interfaz del árbol de sintaxis abstracta (AST) para las etapas posteriores.
+El AST todavía no está implementado: \texttt{ast.h} contiene su interfaz,
+\texttt{ast.c} tiene los cuerpos pendientes y las acciones semánticas de
+\texttt{bison.y} están comentadas.
+
+\section{Analizador léxico}
+
+El lexer reconoce las palabras reservadas (\texttt{boolean}, \texttt{int},
+\texttt{float}, \texttt{void}, \texttt{if}, \texttt{else}, \texttt{while},
+\texttt{return}), identificadores, constantes numéricas y booleanas,
+operadores, delimitadores y comentarios.
+
+\subsection{\texttt{main} no es palabra reservada}
+
+\texttt{main} se reconoce como un identificador. La exigencia de que exista
+un método \texttt{main} con una firma determinada es una regla semántica, por
+lo que su verificación queda para esa etapa.
+
+\subsection{Número de línea}
+
+Activamos \texttt{\%option yylineno} y usamos el número de línea en los
+errores léxicos y en \texttt{yyerror}.
+
+\section{Decisiones de diseño}
+\label{sec:decisiones}
+
+\subsection{Declaraciones globales}
+
+La primera versión separaba las declaraciones globales:
+
+\begin{verbatim}
+Program : VariableDeclarations MethodDeclarations ;
+\end{verbatim}
+
+Esto producía un conflicto shift/reduce porque las declaraciones de variables
+y métodos comparten el prefijo \texttt{Type ID}. Por ejemplo:
+
+\begin{verbatim}
+int a;
+int sumar(int a, int b) { }
+\end{verbatim}
+
+Al encontrar el segundo \texttt{int}, el parser no podía decidir todavía si
+debía reducir una declaración de variable o continuar hacia un método.
+
+Unificamos ambas listas:
+
+\begin{verbatim}
+Declarations
+    : /* vacio */
+    | Declaration Declarations
+    ;
+
+Declaration
+    : VariableDeclaration
+    | MethodDeclaration
+    ;
+\end{verbatim}
+
+Así, variables y métodos pueden aparecer intercalados. También eliminamos el
+no terminal \texttt{ReturnType} e integramos \texttt{Type} y \texttt{VOID}
+directamente en \texttt{MethodDeclaration}.
+
+Verificamos la gramática con \texttt{bison -d -v}: el reporte no presenta
+conflictos shift/reduce ni reglas inalcanzables. También probamos el parser
+con el ejemplo de la especificación y con variantes que intercalan variables
+y métodos, incluyen condicionales, ciclos y llamadas a métodos.
+
+\subsection{Precedencia de operadores}
+
+Usamos \texttt{\%left} y \texttt{\%right} de Bison según la precedencia de la
+especificación: disyunción, conjunción, igualdad, relacionales, suma y resta,
+multiplicación/división/resto, y negación y menos unario.
+
+El menos unario comparte el token \texttt{-} con la resta, pero tiene mayor
+precedencia. Para distinguir ambos casos usamos un token ficticio:
+
+\begin{verbatim}
+%right NOT UMINUS
+...
+    | '-' Expression %prec UMINUS
+\end{verbatim}
+
+El lexer nunca devuelve \texttt{UMINUS}; solo se usa para asignar precedencia
+a esa regla.
+
+\subsection{Condición del \texttt{while}}
+
+La especificación presenta \texttt{while} sin paréntesis, a diferencia de
+\texttt{if}. Según lo acordado en clase, lo modelamos con la condición entre
+paréntesis:
+
+\begin{verbatim}
+    | WHILE '(' Expression ')' Block
+\end{verbatim}
+
+\subsection{Comentarios multilínea}
+
+Por el momento asumimos que los comentarios multilínea están correctamente
+cerrados. El caso contrario queda como problema conocido del lexer.
+
+\section{Diseño del AST}
+\label{sec:ast}
+
+\subsection{Interfaz}
+
+Separamos el AST de \texttt{bison.y}: \texttt{ast.h} define sus tipos y
+funciones constructoras, mientras que \texttt{ast.c} contiene sus
+implementaciones.
+
+En esta etapa \texttt{ast.c} mantiene los cuerpos vacíos porque todavía no
+cerramos decisiones sobre manejo de memoria y sobre el uso de
+\texttt{left}/\texttt{mid}/\texttt{right} y \texttt{children[]}.
+
+Las acciones semánticas de \texttt{bison.y} están escritas pero comentadas
+como referencia de cómo se construirá cada nodo.
+
+\subsection{Estructura de \texttt{NodeAST}}
+
+Cada \texttt{NodeAST} contiene:
+
+\begin{itemize}
+  \item \texttt{nodeType}: construcción sintáctica representada.
+  \item \texttt{Symbol}: identificador o valor asociado, cuando corresponde.
+  \item \texttt{left}, \texttt{mid}, \texttt{right}: hijos para estructuras
+  con una cantidad fija y pequeña de elementos.
+  \item \texttt{children[]}: hijos de cantidad variable.
+  \item \texttt{type}: tipo semántico del nodo.
+\end{itemize}
+
+\texttt{type} se mantiene separado de \texttt{nodeType}: el primero representa
+el tipo de dato y el segundo la construcción sintáctica.
+
+\subsection{Criterio para crear nodos}
+
+No creamos un nodo para cada no terminal. Solo se representan construcciones
+que aportan información al AST. Por ejemplo, \texttt{Statement} agrupa
+alternativas y simplemente propaga el nodo de la alternativa elegida.
+\texttt{Block}, en cambio, tiene un nodo propio porque representa un scope y
+agrupa declaraciones y sentencias.
+
+\subsection{Listas de hijos}
+
+\texttt{NodeList} se usa durante el parsing para acumular hijos en reglas
+recursivas. \texttt{attachChildren} copia esa lista al arreglo
+\texttt{children[]} del nodo padre. El AST final queda compuesto por
+\texttt{NodeAST}, sin la lista auxiliar.
+
+\section{Testing}
+\label{sec:tests}
+
+Agregamos tests unitarios para lexer y parser en \texttt{tests/}, usando
+Unity. Se ejecutan con:
+
+\begin{verbatim}
+bash test_suite.sh
+\end{verbatim}
+
+Los tests del lexer cubren tokens mal reconocidos, literales numéricos
+inválidos, operadores no permitidos, comentarios, símbolos inválidos y
+números de línea.
+
+Los tests del parser verifican programas válidos e inválidos, incluyendo
+errores en punto y coma, llaves, firmas, sentencias, expresiones y
+paréntesis. También cubren la intercalación de variables y métodos globales.
+
+Los tests solo verifican reglas léxicas y sintácticas. No evalúan reglas
+semánticas ni la precedencia de operadores, porque el AST todavía no está
+implementado.
+
+\section{Problemas conocidos}
+\label{sec:problemas}
+
+\subsection{Comentario multilínea sin cerrar}
+
+La expresión regular actual para comentarios multilínea requiere que exista
+el cierre \texttt{*/}. Si el archivo termina antes, el contenido se procesa
+con las reglas siguientes y se reportan errores léxicos sobre sus caracteres.
+
+Caso de test:
+
+\begin{verbatim}
+/* este comentario
+nunca se cierra
+int nuncaSeEjecuta;
+\end{verbatim}
+
+La solución prevista es usar un estado exclusivo de Flex, por ejemplo
+\texttt{\%x COMMENT}, y una regla \texttt{<<EOF>>} que informe que el
+comentario no fue cerrado. Queda pendiente de implementar.
+
+\subsection{Alcance de esta entrega}
+
+El AST queda limitado a su interfaz en \texttt{ast.h}. Las implementaciones de
+\texttt{ast.c} y las acciones semánticas de \texttt{bison.y} quedan para la
+siguiente etapa, una vez cerradas las decisiones de diseño pendientes.
+
+\end{document}
