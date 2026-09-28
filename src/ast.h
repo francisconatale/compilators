@@ -151,4 +151,19 @@ NodeList *flattenVariableDeclarations(NodeAST *dataType, NodeList *identifiers);
 
 NodeAST *newLiteralNode(DataType type, const char *value);
 
+/*
+ * freeSymbol
+ * ----------
+ * Libera un Symbol reservado con newSymbol, incluyendo las cadenas
+ * copiadas internamente (id y value).
+ *
+ * Parametros:
+ *   symbol - symbol a liberar. Puede ser NULL (no hace nada).
+ *
+ * Efecto:
+ *   Libera symbol->id, symbol->value y symbol mismo. El puntero queda
+ *   invalido despues de esta llamada.
+ */
+void freeSymbol(Symbol *symbol);
+
 #endif /* AST_H */
