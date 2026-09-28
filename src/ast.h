@@ -27,10 +27,7 @@ typedef struct Symbol {
     char *value;
 } Symbol;
 
-/* NodeAST
- * left/right para nodos binarios (ASSIGNMENT_NODE). children/childCount
- * para nodos con una cantidad variable de hijos (VARIABLE_DECLARATION_NODE, ver
- * IdList en bison.y). */
+
 typedef struct NodeAST {
     NodeType nodeType;
     DataType type;
@@ -52,30 +49,76 @@ typedef struct NodeList {
     struct NodeList *next;
 } NodeList;
 
-/* Crea un Symbol reservado dinamicamente copiando id y value. */
+/**
+ * Crea un Symbol reservado dinámicamente copiando id y value.
+ *
+ * @param id Identificador del símbolo.
+ * @param value Valor del símbolo.
+ * @return Nuevo símbolo creado.
+ */
 Symbol *newSymbol(const char *id, const char *value);
 
-/* Crea un NodeAST. left, mid y right se empaquetan en children. */
+/**
+ * Crea un nuevo nodo AST. left, mid y right se empaquetan en children.
+ *
+ * @param nodeType Tipo de nodo.
+ * @param symbol Símbolo asociado al nodo.
+ * @param left Nodo hijo izquierdo (opcional).
+ * @param mid Nodo hijo medio (opcional).
+ * @param right Nodo hijo derecho (opcional).
+ * @return Nuevo nodo creado.
+ */
 NodeAST *newNode(NodeType nodeType, Symbol *symbol, NodeAST *left, NodeAST *mid, NodeAST *right);
 
-/* Crea una lista enlazada transitoria para el parsing en bison.y. */
+/**
+ * Crea una lista enlazada transitoria para el parsing en bison.y.
+ *
+ * @param node Nodo a agregar a la lista.
+ * @param next Siguiente elemento en la lista.
+ * @return Nueva lista de nodos.
+ */
 NodeList *newNodeList(NodeAST *node, NodeList *next);
 
-/* Vuelca los nodos de NodeList al arreglo children[] de parent y libera la lista. */
+/**
+ * Vuelca los nodos de NodeList al arreglo children[] de parent y libera la lista.
+ *
+ * @param parent Nodo padre donde se adjuntarán los hijos.
+ * @param list Lista de nodos a volcar.
+ */
 void attachChildren(NodeAST *parent, NodeList *list);
 
-/* Concatena dos NodeList sin reservar nueva memoria. */
+/**
+ * Concatena dos NodeList sin reservar nueva memoria.
+ *
+ * @param list1 Primera lista de nodos.
+ * @param list2 Segunda lista de nodos.
+ * @return Lista de nodos concatenada.
+ */
 NodeList *mergeNodeLists(NodeList *list1, NodeList *list2);
 
-/* Desarma declaraciones multiples en unitarias (ej: int x, y; -> int x; int y;). 
- * [MODIFICADO]: Ahora recibe 'DataType type' en lugar de un NodeAST para evitar 
- * crear nodos (TYPE_NODE) innecesarios en el árbol. */
+/**
+ * Desarma declaraciones múltiples en unitarias (ej: int x, y; -> int x; int y;).
+ *
+ * @param type Tipo de dato de las variables declaradas.
+ * @param identifiers Lista de identificadores.
+ * @return Lista con declaraciones unitarias.
+ */
 NodeList *flattenVariableDeclarations(DataType type, NodeList *identifiers);
 
-/* Crea un CONSTANT_NODE para un literal numérico/booleano. */
+/**
+ * Crea un CONSTANT_NODE para un literal numérico/booleano.
+ *
+ * @param type Tipo de dato de la constante.
+ * @param value Valor de la constante como cadena de texto.
+ * @return Nuevo nodo constante creado.
+ */
 NodeAST *newLiteralNode(DataType type, const char *value);
 
-/* Libera un Symbol y sus cadenas internas. */
+/**
+ * Libera un Symbol y sus cadenas internas.
+ *
+ * @param symbol Símbolo a liberar.
+ */
 void freeSymbol(Symbol *symbol);
 
 #endif /* AST_H */

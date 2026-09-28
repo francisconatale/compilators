@@ -3,7 +3,6 @@
 #include <string.h>
 #include "ast.h"
 
-/* Crea un Symbol dinámico copiando id y value. */
 Symbol *newSymbol(const char *id, const char *value) {
     Symbol *symbol = malloc(sizeof(Symbol));
     if (symbol == NULL) return NULL;
@@ -13,7 +12,7 @@ Symbol *newSymbol(const char *id, const char *value) {
     return symbol;
 }
 
-extern int yylineno; // Para usar el numero de linea de flex
+extern int yylineno; 
 
 NodeAST *newNode(NodeType nodeType, Symbol *symbol, NodeAST *left, NodeAST *mid, NodeAST *right) {
     NodeAST *node = malloc(sizeof(NodeAST));
@@ -46,7 +45,6 @@ NodeAST *newNode(NodeType nodeType, Symbol *symbol, NodeAST *left, NodeAST *mid,
     return node;
 }
 
-/* Crea o extiende una lista auxiliar para bison. */
 NodeList *newNodeList(NodeAST *node, NodeList *next) {
     NodeList *list = malloc(sizeof(NodeList));
     if (list == NULL) return NULL;
@@ -57,7 +55,6 @@ NodeList *newNodeList(NodeAST *node, NodeList *next) {
     return list;
 }
 
-/* Crea un CONSTANT_NODE para un literal. */
 NodeAST *newLiteralNode(DataType type, const char *value)
 {
     Symbol *symbol = newSymbol(NULL, value);
@@ -80,11 +77,6 @@ NodeAST *newLiteralNode(DataType type, const char *value)
     return node;
 }
 
-/*
- * attachChildren
- * Vuelca los nodos de 'list' al arreglo 'children[]' de 'parent' 
- * (asumiendo children == NULL). Modifica in-place y libera 'list'.
- */
 void attachChildren(NodeAST *parent, NodeList *list) {
     int count = 0;
     for (NodeList *current = list; current != NULL; current = current->next) {
@@ -117,11 +109,6 @@ void attachChildren(NodeAST *parent, NodeList *list) {
     parent->childCount = count;
 }
 
-/*
- * mergeNodeLists
- * Concatena 'list2' al final de 'list1' reutilizando las celdas
- * existentes sin reservar memoria nueva. Retorna la lista unida.
- */
 NodeList *mergeNodeLists(NodeList *list1, NodeList *list2) {
     if (list1 == NULL) return list2;
     if (list2 == NULL) return list1;
