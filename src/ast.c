@@ -108,6 +108,26 @@ NodeList *newNodeList(NodeAST *node, NodeList *next) {
     return list;
 }
 
+/*
+ * newLiteralNode
+ * --------------
+ * Crea un nodo CONSTANT_NODE para un literal (numerico, booleano o
+ * de punto flotante) encontrado en una expresion.
+ *
+ * Parametros:
+ *   type  - tipo semantico del literal (TYPE_INT, TYPE_BOOL o
+ *           TYPE_FLOAT).
+ *   value - valor del literal como cadena, o NULL si no se conserva
+ *           el valor textual.
+ *
+ * Devuelve:
+ *   Puntero a un NodeAST de tipo CONSTANT_NODE con su campo type ya
+ *   fijado, o NULL si no se pudo reservar memoria.
+ *
+ * Dueño de la memoria:
+ *   El llamador es dueño del NodeAST devuelto (y del Symbol interno
+ *   que queda colgado de node->symbol).
+ */
 NodeAST *newLiteralNode(DataType type, const char *value)
 {
     Symbol *symbol = newSymbol(NULL, value);
@@ -195,6 +215,28 @@ void attachChildren(NodeAST *parent, NodeList *list) {
     parent->childCount = count;
 }
 
+/*
+ * mergeNodeLists
+ * --------------
+ * Concatena dos NodeList en una sola, uniendo list2 al final de list1.
+ * Se usa para combinar listas de hijos que se arman por separado
+ * durante el parsing (por ejemplo, declaraciones de variables y
+ * sentencias dentro de un mismo Block) en una unica lista antes de
+ * volcarla con attachChildren.
+ *
+ * Parametros:
+ *   list1 - primera lista (o NULL).
+ *   list2 - segunda lista, que queda enganchada al final de list1
+ *           (o NULL).
+ *
+ * Devuelve:
+ *   Puntero a la lista resultante. Si alguna de las dos es NULL,
+ *   devuelve la otra tal cual (no reserva memoria nueva).
+ *
+ * Dueño de la memoria:
+ *   No reserva celdas nuevas; reutiliza las de list1 y list2,
+ *   modificando el ultimo next de list1 para que apunte a list2.
+ */
 NodeList *mergeNodeLists(NodeList *list1, NodeList *list2) {
     if (list1 == NULL) return list2;
     if (list2 == NULL) return list1;
@@ -208,6 +250,32 @@ NodeList *mergeNodeLists(NodeList *list1, NodeList *list2) {
     return list1;
 }
 
+/*
+ * flattenVariableDeclarations
+ * ----------------------------
+ * Desarma el azucar sintactico de una declaracion con varios
+ * identificadores en una sola linea (por ejemplo "int x, y, z;") en
+ * una lista de declaraciones unitarias equivalentes, una por cada
+ * identificador, todas con el mismo Type.
+ *
+ * Parametros:
+ *   dataType    - nodo Type (ya creado) compartido por todas las
+ *                 declaraciones generadas.
+ *   identifiers - lista de nodos ID_NODE, uno por cada identificador
+ *                 declarado.
+ *
+ * Devuelve:
+ *   Lista de nodos VARIABLE_DECLARATION_NODE, uno por cada elemento
+ *   de identifiers, listos para colgarse como hijos de Program o de
+ *   un Block via attachChildren.
+ *
+ * Dueño de la memoria:
+ *   El llamador es dueño de la lista devuelta y de cada
+ *   VARIABLE_DECLARATION_NODE que contiene. dataType queda
+ *   referenciado (no copiado) desde cada declaracion generada: los
+ *   distintos VARIABLE_DECLARATION_NODE comparten el mismo puntero a
+ *   dataType, no tienen cada uno su propia copia.
+ */
 NodeList *flattenVariableDeclarations(NodeAST *dataType, NodeList *identifiers) {
     NodeList *declarationList = NULL;
     NodeList **tail = &declarationList;
