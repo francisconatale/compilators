@@ -61,16 +61,28 @@ NodeAST *raizAST = NULL;
     ;
 
 
-    VariableDeclarations
-    : /* empty */                               /* { $$ = NULL; } */
-    | VariableDeclaration VariableDeclarations  /* { $$ = mergeNodeLists($1, $2); } */
-    ;
-
     VariableDeclaration
     : Type IdentifierList ';' /* {
         $$ = flattenVariableDeclarations($1, $2);
     } */
     ;
+
+
+    MethodDeclaration
+    : Type ID '(' ParameterList ')' Block
+    | VOID ID '(' ParameterList ')' Block
+    ;
+
+    ParameterList
+    : /* empty */
+    | Parameters
+    ;
+
+    Parameters
+    : Type ID
+    | Parameters ',' Type ID
+    ;
+
 
      IdentifierList
     : ID                /* { $$ = newNodeList(newNode(ID_NODE, newSymbol($1, NULL), NULL, NULL, NULL), NULL); } */
@@ -150,21 +162,6 @@ NodeAST *raizAST = NULL;
     | Expression OR Expression
     ;
 
-    MethodDeclaration
-    : Type ID '(' ParameterList ')' Block
-    | VOID ID '(' ParameterList ')' Block
-    ;
-
-    ParameterList
-    : /* empty */
-    | Parameters
-    ;
-
-    Parameters
-    : Type ID
-    | Parameters ',' Type ID
-    ;
-
     Block
     : '{' VariableDeclarations Statements '}'
         /* {
@@ -172,6 +169,12 @@ NodeAST *raizAST = NULL;
         attachChildren(block, mergeNodeLists($2, $3));
         $$ = block;
 } */
+    ;
+
+
+    VariableDeclarations
+    : /* empty */                               /* { $$ = NULL; } */
+    | VariableDeclaration VariableDeclarations  /* { $$ = mergeNodeLists($1, $2); } */
     ;
 
 
