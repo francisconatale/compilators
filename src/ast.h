@@ -93,8 +93,8 @@ Symbol *newSymbol(const char *id, const char *value);
  *
  * Devuelve:
  *   Puntero a un NodeAST nuevo, con children == NULL y childCount == 0
- *   (se completan aparte con attachChildren). El campo type se espera
- *   inicializado a un valor por defecto, ya que el tipo real de la
+ *   (se completan aparte con attachChildren). El campo type se inicializa
+ *   por defecto con TYPE_VOID, ya que el tipo real de la
  *   mayoria de los nodos se resuelve recien en el analisis semantico.
  *
  * Dueño de la memoria:
