@@ -9,7 +9,6 @@ typedef enum {
     TYPE_VOID
 } DataType;
 
-/* Tipos de nodo del AST */
 typedef enum {
     TYPE_NODE,
     VARIABLE_DECLARATION_NODE,
@@ -23,10 +22,6 @@ typedef enum {
     METHOD_CALL_NODE
 } NodeType;
 
-/* Symbol 
- * id y value solamente. El tipo NO va aca (va en NodeAST.type) 
- * para no duplicar informacion ni tener dos fuentes de verdad
- * distintas para el tipo. */
 typedef struct Symbol {
     char *id;
     char *value;
@@ -45,19 +40,13 @@ typedef struct NodeAST {
     int childCount;
 } NodeAST;
 
-/* Macros de acceso para Nodos con Hijos Fijos (Suma, Resta, etc.) */
 #define GET_LEFT(node)  ((node)->childCount > 0 ? (node)->children[0] : NULL)
 #define GET_RIGHT(node) ((node)->childCount > 1 ? (node)->children[1] : NULL)
 
-/* Macros para el IF-ELSE */
 #define GET_CONDITION(node)  ((node)->childCount > 0 ? (node)->children[0] : NULL)
 #define GET_IF_BLOCK(node)   ((node)->childCount > 1 ? (node)->children[1] : NULL)
 #define GET_ELSE_BLOCK(node) ((node)->childCount > 2 ? (node)->children[2] : NULL)
 
-/* NodeList 
- * Lista enlazada auxiliar, usada solo durante la construccion del
- * AST (dentro de bison.y) para acumular nodos hermanos antes de volcarlos al
- * arreglo children[] del nodo padre. No forma parte del AST final. */
 typedef struct NodeList {
     NodeAST *node;
     struct NodeList *next;
@@ -78,8 +67,10 @@ void attachChildren(NodeAST *parent, NodeList *list);
 /* Concatena dos NodeList sin reservar nueva memoria. */
 NodeList *mergeNodeLists(NodeList *list1, NodeList *list2);
 
-/* Desarma declaraciones multiples en unitarias (ej: int x, y; -> int x; int y;). */
-NodeList *flattenVariableDeclarations(NodeAST *dataType, NodeList *identifiers);
+/* Desarma declaraciones multiples en unitarias (ej: int x, y; -> int x; int y;). 
+ * [MODIFICADO]: Ahora recibe 'DataType type' en lugar de un NodeAST para evitar 
+ * crear nodos (TYPE_NODE) innecesarios en el árbol. */
+NodeList *flattenVariableDeclarations(DataType type, NodeList *identifiers);
 
 /* Crea un CONSTANT_NODE para un literal numérico/booleano. */
 NodeAST *newLiteralNode(DataType type, const char *value);

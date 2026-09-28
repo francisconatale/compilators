@@ -20,20 +20,17 @@ NodeAST *raizAST = NULL;
   char* strval;
   struct NodeAST *node;
   struct NodeList *list;
+  DataType dtype;
 }
 
-/* Tokens de una sola palabra clave */
 %token VOID INT FLOAT BOOLEAN IF ELSE WHILE RETURN
 
-/* Operadores relacionales y lógicos que ocupan más de un carácter */
 %token EQ AND OR NOT
 
-/* Tokens que traen un valor semántico asociado desde Flex */
 %token <strval> ID
 %token <intval> NUMBER BOOL_CONST
 %token <floatval> FLOAT_CONST
 
-/* Precedencia de menor a mayor */
 %left OR           /* disyunción lógica || */
 %left AND          /* conjunción lógica && */
 %left EQ           /* igualdad == */
@@ -42,7 +39,8 @@ NodeAST *raizAST = NULL;
 %left '*' '/' '%'  /* multiplicación, división, resto */
 %right NOT UMINUS  /* negación lógica ! y menos unario */
 
-%type <node> Program Statement Expression Type MethodCall Block
+%type <node> Program Statement Expression MethodCall Block
+%type <dtype> Type 
 %type <list> VariableDeclaration IdentifierList ListArguments VariableDeclarations Statements
 
 %%
@@ -62,9 +60,9 @@ NodeAST *raizAST = NULL;
 
 
     VariableDeclaration
-    : Type IdentifierList ';' /* {
+    : Type IdentifierList ';' {
         $$ = flattenVariableDeclarations($1, $2);
-    } */
+    }
     ;
 
 
@@ -95,10 +93,10 @@ NodeAST *raizAST = NULL;
     ;
 
     
-    Type
-    : INT       /* { $$ = newNode(TYPE_NODE, newSymbol("int", NULL), NULL, NULL, NULL); $$->type = TYPE_INT; } */
-    | BOOLEAN   /* { $$ = newNode(TYPE_NODE, newSymbol("boolean", NULL), NULL, NULL, NULL); $$->type = TYPE_BOOL; } */
-    | FLOAT     /* { $$ = newNode(TYPE_NODE, newSymbol("float", NULL), NULL, NULL, NULL); $$->type = TYPE_FLOAT; } */
+    Type 
+    : INT       { $$ = TYPE_INT; }
+    | BOOLEAN   { $$ = TYPE_BOOL; }
+    | FLOAT     { $$ = TYPE_FLOAT; }
     ;
 
 

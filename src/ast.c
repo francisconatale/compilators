@@ -15,7 +15,6 @@ Symbol *newSymbol(const char *id, const char *value) {
 
 extern int yylineno; // Para usar el numero de linea de flex
 
-/* Crea un NodeAST empaquetando left, mid, right en el arreglo children. */
 NodeAST *newNode(NodeType nodeType, Symbol *symbol, NodeAST *left, NodeAST *mid, NodeAST *right) {
     NodeAST *node = malloc(sizeof(NodeAST));
     if (node == NULL) return NULL;
@@ -25,7 +24,6 @@ NodeAST *newNode(NodeType nodeType, Symbol *symbol, NodeAST *left, NodeAST *mid,
     node->type = TYPE_VOID;
     node->line = yylineno; // Guardamos la linea actual
 
-    // Empaquetamos left, mid, right en children
     int count = 0;
     NodeAST *temp[3];
     if (left) temp[count++] = left;
@@ -137,21 +135,16 @@ NodeList *mergeNodeLists(NodeList *list1, NodeList *list2) {
     return list1;
 }
 
-/*
- * flattenVariableDeclarations
- * Convierte múltiples identificadores (ej. "int x, y;") en una lista
- * de declaraciones unitarias (VARIABLE_DECLARATION_NODE). Todas
- * comparten el puntero 'dataType'. El llamador es dueño de la lista.
- * los ifs nulls devuelven lo armado si nos quedamos sin memoria
- */
-NodeList *flattenVariableDeclarations(NodeAST *dataType, NodeList *identifiers) {
+NodeList *flattenVariableDeclarations(DataType type, NodeList *identifiers) {
     NodeList *declarationList = NULL;
     NodeList **tail = &declarationList;
     NodeList *currentId = identifiers;
     
     while (currentId != NULL) {
-        NodeAST *individualDecl = newNode(VARIABLE_DECLARATION_NODE, NULL, dataType, currentId->node, NULL);        
+        NodeAST *individualDecl = newNode(VARIABLE_DECLARATION_NODE, NULL, currentId->node, NULL, NULL);        
         if (individualDecl == NULL) return declarationList;
+        
+        individualDecl->type = type;
 
         NodeList *newCell = newNodeList(individualDecl, NULL);
         if (newCell == NULL) return declarationList;
@@ -165,10 +158,6 @@ NodeList *flattenVariableDeclarations(NodeAST *dataType, NodeList *identifiers) 
     return declarationList;
 }
 
-/*
- * freeSymbol
- * Libera un Symbol y sus cadenas internas (id y value).
- */
 void freeSymbol(Symbol *symbol) {
     if (symbol == NULL) return;
 
