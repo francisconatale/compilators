@@ -96,6 +96,12 @@ NodeAST *newLiteralNode(DataType type, const char *value)
         NULL
     );
 
+    // Por si no se pudo crear el nodo debido a falta de memoria (newNode retorno NULL)
+    if (node == NULL) {
+        freeSymbol(symbol);
+        return NULL;
+    }
+
     node->type = type;
 
     return node;
