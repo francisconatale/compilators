@@ -1,0 +1,315 @@
+Estado 0 conflictos: 1 desplazamiento/reducción
+Estado 4 conflictos: 1 desplazamiento/reducción
+
+
+Gramática
+
+    0 $accept: Program $end
+
+    1 Program: VariableDeclarations MethodDeclarations
+
+    2 VariableDeclarations: ε
+    3                     | VariableDeclaration VariableDeclarations
+
+    4 VariableDeclaration: Type ID ';'
+
+    5 MethodDeclarations: ε
+    6                   | MethodDeclaration MethodDeclarations
+
+    7 MethodDeclaration: Type ID '(' ')' Block
+    8                  | VOID ID '(' ')' Block
+
+    9 Type: INT
+
+   10 Block: '{' '}'
+
+
+Terminales con las reglas donde aparecen
+
+    $end (0) 0
+    '(' (40) 7 8
+    ')' (41) 7 8
+    ';' (59) 4
+    '{' (123) 10
+    '}' (125) 10
+    error (256)
+    INT (258) 9
+    VOID (259) 8
+    ID (260) 4 7 8
+
+
+No terminales con las reglas donde aparecen
+
+    $accept (11)
+        on left: 0
+    Program (12)
+        on left: 1
+        on right: 0
+    VariableDeclarations (13)
+        on left: 2 3
+        on right: 1 3
+    VariableDeclaration (14)
+        on left: 4
+        on right: 3
+    MethodDeclarations (15)
+        on left: 5 6
+        on right: 1 6
+    MethodDeclaration (16)
+        on left: 7 8
+        on right: 6
+    Type (17)
+        on left: 9
+        on right: 4 7
+    Block (18)
+        on left: 10
+        on right: 7 8
+
+
+Estado 0
+
+    0 $accept: • Program $end
+
+    INT  desplazar e ir al estado 1
+
+    INT       [reduce usando la regla 2 (VariableDeclarations)]
+    $default  reduce usando la regla 2 (VariableDeclarations)
+
+    Program               ir al estado 2
+    VariableDeclarations  ir al estado 3
+    VariableDeclaration   ir al estado 4
+    Type                  ir al estado 5
+
+    shift/reduce conflict on token INT:
+        2 VariableDeclarations: ε •
+        9 Type: • INT
+      First example: • INT ID ';' VariableDeclarations MethodDeclarations $end
+      Shift derivation
+        $accept
+        ↳ 0: Program                                                                  $end
+             ↳ 1: VariableDeclarations                             MethodDeclarations
+                  ↳ 3: VariableDeclaration    VariableDeclarations
+                       ↳ 4: Type       ID ';'
+                            ↳ 9: • INT
+      Second example: • INT ID '(' ')' Block MethodDeclarations $end
+      Reduce derivation
+        $accept
+        ↳ 0: Program                                                                          $end
+             ↳ 1: VariableDeclarations MethodDeclarations
+                  ↳ 2: ε •             ↳ 6: MethodDeclaration              MethodDeclarations
+                                            ↳ 7: Type     ID '(' ')' Block
+                                                 ↳ 9: INT
+
+
+
+Estado 1
+
+    9 Type: INT •
+
+    $default  reduce usando la regla 9 (Type)
+
+
+Estado 2
+
+    0 $accept: Program • $end
+
+    $end  desplazar e ir al estado 6
+
+
+Estado 3
+
+    1 Program: VariableDeclarations • MethodDeclarations
+
+    INT   desplazar e ir al estado 1
+    VOID  desplazar e ir al estado 7
+
+    $default  reduce usando la regla 5 (MethodDeclarations)
+
+    MethodDeclarations  ir al estado 8
+    MethodDeclaration   ir al estado 9
+    Type                ir al estado 10
+
+
+Estado 4
+
+    3 VariableDeclarations: VariableDeclaration • VariableDeclarations
+
+    INT  desplazar e ir al estado 1
+
+    INT       [reduce usando la regla 2 (VariableDeclarations)]
+    $default  reduce usando la regla 2 (VariableDeclarations)
+
+    VariableDeclarations  ir al estado 11
+    VariableDeclaration   ir al estado 4
+    Type                  ir al estado 5
+
+    shift/reduce conflict on token INT:
+        2 VariableDeclarations: ε •
+        9 Type: • INT
+      First example: VariableDeclaration • INT ID ';' VariableDeclarations $end
+      Shift derivation
+        $accept
+        ↳ 0: VariableDeclarations                                                      $end
+             ↳ 3: VariableDeclaration VariableDeclarations
+                                      ↳ 3: VariableDeclaration    VariableDeclarations
+                                           ↳ 4: Type       ID ';'
+                                                ↳ 9: • INT
+      Second example: VariableDeclaration • INT ID '(' ')' Block MethodDeclarations $end
+      Reduce derivation
+        $accept
+        ↳ 0: Program                                                                                                   $end
+             ↳ 1: VariableDeclarations                          MethodDeclarations
+                  ↳ 3: VariableDeclaration VariableDeclarations ↳ 6: MethodDeclaration              MethodDeclarations
+                                           ↳ 2: ε •                  ↳ 7: Type     ID '(' ')' Block
+                                                                          ↳ 9: INT
+
+
+
+Estado 5
+
+    4 VariableDeclaration: Type • ID ';'
+
+    ID  desplazar e ir al estado 12
+
+
+Estado 6
+
+    0 $accept: Program $end •
+
+    $default  aceptar
+
+
+Estado 7
+
+    8 MethodDeclaration: VOID • ID '(' ')' Block
+
+    ID  desplazar e ir al estado 13
+
+
+Estado 8
+
+    1 Program: VariableDeclarations MethodDeclarations •
+
+    $default  reduce usando la regla 1 (Program)
+
+
+Estado 9
+
+    6 MethodDeclarations: MethodDeclaration • MethodDeclarations
+
+    INT   desplazar e ir al estado 1
+    VOID  desplazar e ir al estado 7
+
+    $default  reduce usando la regla 5 (MethodDeclarations)
+
+    MethodDeclarations  ir al estado 14
+    MethodDeclaration   ir al estado 9
+    Type                ir al estado 10
+
+
+Estado 10
+
+    7 MethodDeclaration: Type • ID '(' ')' Block
+
+    ID  desplazar e ir al estado 15
+
+
+Estado 11
+
+    3 VariableDeclarations: VariableDeclaration VariableDeclarations •
+
+    $default  reduce usando la regla 3 (VariableDeclarations)
+
+
+Estado 12
+
+    4 VariableDeclaration: Type ID • ';'
+
+    ';'  desplazar e ir al estado 16
+
+
+Estado 13
+
+    8 MethodDeclaration: VOID ID • '(' ')' Block
+
+    '('  desplazar e ir al estado 17
+
+
+Estado 14
+
+    6 MethodDeclarations: MethodDeclaration MethodDeclarations •
+
+    $default  reduce usando la regla 6 (MethodDeclarations)
+
+
+Estado 15
+
+    7 MethodDeclaration: Type ID • '(' ')' Block
+
+    '('  desplazar e ir al estado 18
+
+
+Estado 16
+
+    4 VariableDeclaration: Type ID ';' •
+
+    $default  reduce usando la regla 4 (VariableDeclaration)
+
+
+Estado 17
+
+    8 MethodDeclaration: VOID ID '(' • ')' Block
+
+    ')'  desplazar e ir al estado 19
+
+
+Estado 18
+
+    7 MethodDeclaration: Type ID '(' • ')' Block
+
+    ')'  desplazar e ir al estado 20
+
+
+Estado 19
+
+    8 MethodDeclaration: VOID ID '(' ')' • Block
+
+    '{'  desplazar e ir al estado 21
+
+    Block  ir al estado 22
+
+
+Estado 20
+
+    7 MethodDeclaration: Type ID '(' ')' • Block
+
+    '{'  desplazar e ir al estado 21
+
+    Block  ir al estado 23
+
+
+Estado 21
+
+   10 Block: '{' • '}'
+
+    '}'  desplazar e ir al estado 24
+
+
+Estado 22
+
+    8 MethodDeclaration: VOID ID '(' ')' Block •
+
+    $default  reduce usando la regla 8 (MethodDeclaration)
+
+
+Estado 23
+
+    7 MethodDeclaration: Type ID '(' ')' Block •
+
+    $default  reduce usando la regla 7 (MethodDeclaration)
+
+
+Estado 24
+
+   10 Block: '{' '}' •
+
+    $default  reduce usando la regla 10 (Block)
