@@ -3,12 +3,7 @@
 #include <string.h>
 #include "ast.h"
 
-/*
- * newSymbol
- * Crea un Symbol dinámico. Copia las cadenas 'id' y 'value' para ser
- * independiente de yytext. Retorna un puntero al Symbol (el llamador
- * es dueño de la memoria). Los parámetros pueden ser NULL.
- */
+/* Crea un Symbol dinámico copiando id y value. */
 Symbol *newSymbol(const char *id, const char *value) {
     Symbol *symbol = malloc(sizeof(Symbol));
     if (symbol == NULL) return NULL;
@@ -20,11 +15,7 @@ Symbol *newSymbol(const char *id, const char *value) {
 
 extern int yylineno; // Para usar el numero de linea de flex
 
-/*
- * newNode
- * Crea un NodeAST dinámico. 'left', 'mid' y 'right' se empaquetan
- * en el arreglo 'children'.
- */
+/* Crea un NodeAST empaquetando left, mid, right en el arreglo children. */
 NodeAST *newNode(NodeType nodeType, Symbol *symbol, NodeAST *left, NodeAST *mid, NodeAST *right) {
     NodeAST *node = malloc(sizeof(NodeAST));
     if (node == NULL) return NULL;
@@ -57,11 +48,7 @@ NodeAST *newNode(NodeType nodeType, Symbol *symbol, NodeAST *left, NodeAST *mid,
     return node;
 }
 
-/*
- * newNodeList
- * Crea o extiende una lista enlazada de nodos (transitoria para bison).
- * El llamador es dueño de la celda devuelta.
- */
+/* Crea o extiende una lista auxiliar para bison. */
 NodeList *newNodeList(NodeAST *node, NodeList *next) {
     NodeList *list = malloc(sizeof(NodeList));
     if (list == NULL) return NULL;
@@ -72,11 +59,7 @@ NodeList *newNodeList(NodeAST *node, NodeList *next) {
     return list;
 }
 
-/*
- * newLiteralNode
- * Crea un CONSTANT_NODE para un literal con su tipo semántico.
- * El llamador es dueño del nodo y de su Symbol interno.
- */
+/* Crea un CONSTANT_NODE para un literal. */
 NodeAST *newLiteralNode(DataType type, const char *value)
 {
     Symbol *symbol = newSymbol(NULL, value);
