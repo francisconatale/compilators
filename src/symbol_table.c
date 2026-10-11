@@ -67,6 +67,8 @@ void analyzeNodeSemantics(NodeAST *node, Scope *current_scope);
 DataType analyzeExpression(NodeAST *node, Scope *scope);
 DataType analyzeMethodCall(NodeAST *node, Scope *scope, int isExpression);
 int isAssignable(DataType expected, DataType actual);
+void analyzeIfElseNode(NodeAST *node, Scope *current_scope);
+void analyzeWhileNode(NodeAST *node, Scope *current_scope);
 
 #include "error_handler.h"
 
@@ -85,12 +87,25 @@ Symbol* lookupVariableCurrentScope(Scope *scope, const char *id) {
 }
 // se pasa el type en el scope, para el momento de retornar poder ver que es lo que espera el scope
 void analyzeMethodNode(NodeAST *node, Scope *current_scope, DataType type) {
+    // El metodo se declara en el scope que lo contiene ANTES de analizar su cuerpo, asi
+    // queda visible para si mismo (recursion) y para los metodos declarados mas abajo.
+    if (node->symbol) {
+        Symbol *existing = lookupVariableCurrentScope(current_scope, node->symbol->id);
+        if (existing != NULL) {
+            semanticError(node->line, "El metodo '%s' ya fue declarado previamente en este ambito.", node->symbol->id);
+        } else {
+            appendSymbol(current_scope, node->symbol);
+        }
+    }
+
     Scope *child_scope = analyzeSemantics(node, current_scope, type);
     appendChildScope(current_scope, child_scope);
 }
-// un bloque no necesariamente necesita hacer un retorno por eso el null
+// un bloque no define un contexto de retorno propio: hereda el del scope que lo contiene.
+// El cuerpo de un metodo es un BLOCK_NODE, asi que de aca sale el tipo contra el que se
+// validan los return de ese metodo.
 void analyzeBlockNode(NodeAST *node, Scope *current_scope) {
-    Scope *child_scope = analyzeSemantics(node, current_scope, TYPE_VOID);
+    Scope *child_scope = analyzeSemantics(node, current_scope, current_scope->returnType);
     appendChildScope(current_scope, child_scope);
 }
 
