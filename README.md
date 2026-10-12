@@ -57,7 +57,7 @@ una versión navegable de lo mismo.
 │   ├── bison.y                                      # Analizador sintáctico (Bison) + main() del compilador
 │   ├── ast.h / ast.c                                # Interfaz e implementación del AST
 │   ├── symbol_table.h / symbol_table.c              # Tabla de símbolos, scopes y análisis semántico
-│   └── error_handler.h / error_handler.c            # Reporte y conteo de errores semánticos
+│   └── error_handler.h / error_handler.c            # Reporte y conteo de errores léxicos y semánticos
 ├── tests/                                           # Tests unitarios (Unity) de lexer y parser
 ├── examples/                                        # Programas de ejemplo para probar rápido el compilador
 │   ├── programa.txt                                 # Programa válido con todas las construcciones
@@ -114,27 +114,32 @@ uno con un error semántico (`programa_con_error.txt`, asigna `true + x` a un
 
 Sobre el archivo de entrada corren cuatro fases, en este orden:
 
-1. **Léxico y sintáctico** (`yyparse()`). Si hay un error, lo informa con su
-   número de línea (`[Linea N] Error sintactico: ...` o
-   `[Linea N] ERROR LEXICO: simbolo no permitido '...'`) y se detiene en el
-   primero. Si no, imprime
+1. **Léxico** (`yylex`). Los símbolos no permitidos se reportan y se descartan;
+   como el parseo puede terminar bien igual sobre lo que queda, los errores
+   léxicos se cuentan aparte y abortan la compilación.
+2. **Sintáctico** (`yyparse`), que **corta en el primer error**
+   (`[Linea N] Error sintactico: ...`). Si no hay ninguno, imprime
    `--- Analisis sintactico sin errores formales. ---`.
-2. **Construcción del AST**, hecha por las acciones semánticas durante el
+3. **Construcción del AST**, hecha por las acciones semánticas durante el
    parseo. El árbol completo queda en la global `raizAST`.
-3. **Análisis semántico** (`analyzeSemantics` + `checkMainMethodExists`), que
+4. **Análisis semántico** (`analyzeSemantics` + `checkMainMethodExists`), que
    recorre el AST, arma la tabla de símbolos y valida las reglas del lenguaje.
    A diferencia del sintáctico, **no corta en el primer error**: reporta todos
    los que encuentra, cada uno con su línea, y al final
    `Compilacion abortada: se encontraron N errores semanticos.`
-4. **Impresión del AST**, solo si no hubo ningún error semántico, seguida de
+5. **Impresión del AST**, solo si no hubo ningún error, seguida de
    `--- Analisis semantico completado sin errores. ---`.
 
 O sea: ver el árbol impreso es la señal de que el programa pasó todas las fases.
-Los errores semánticos salen por `stderr` y el resto por `stdout`, así que si se
-redirige una sola de las dos el orden de las líneas se mezcla.
+Los errores salen por `stderr` y el resto por `stdout`, así que si se redirige
+una sola de las dos el orden de las líneas se mezcla.
 
-Un programa válido termina con código de salida 0 y uno con errores semánticos
-con 1.
+En el árbol, cada identificador aparece como `nombre #uid (Tipo T)`. El `uid`
+identifica a la entidad declarada, así que dos variables distintas con el mismo
+nombre (ocultamiento de scopes) se distinguen a simple vista.
+
+Un programa válido termina con código de salida 0, y cualquier error (léxico,
+sintáctico o semántico) con 1.
 
 ## Tests
 
@@ -191,16 +196,16 @@ eso al final conviene probar el compilador de verdad sobre un ejemplo:
 ```
 
 `programa.txt` usa todas las construcciones de la gramática, así que sirve de
-prueba de humo de las cuatro fases de una sola pasada. Para chequear que los
+prueba de humo de todas las fases de una sola pasada. Para chequear que los
 errores se siguen detectando, `./mi_compilador examples/programa_con_error.txt`
 tiene que reportar un error semántico y salir con código 1.
 
 ## Problemas conocidos
 
-- **Los ejemplos usan extensión `.txt`.** La letra exige `.ctds`, y también una
-  CLI (`-target`, `-opt`, `-debug`, `-o`) que todavía no está implementada: hoy
-  el compilador toma un único argumento posicional y, si no se le pasa ninguno,
-  lee de la entrada estándar.
+- **Falta la interfaz de línea de comandos que pide la letra**
+  (`-target`, `-opt`, `-debug`, `-o`, extensión `.ctds` obligatoria, una salida
+  por etapa). Hoy el compilador toma un único argumento posicional y, si no se
+  le pasa ninguno, lee de la entrada estándar. Los ejemplos todavía usan `.txt`.
 - **Sin `-debug`, el compilador igual imprime el AST.** La letra pide que una
   compilación exitosa no imprima nada salvo que se pida debugging.
 - **Un método solo ve a los declarados antes que él.** No hay declaración
