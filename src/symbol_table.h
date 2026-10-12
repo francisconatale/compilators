@@ -52,6 +52,14 @@ void checkMainMethodExists(Scope *globalScope);
  */
 struct Symbol {
     char *id;
+    /**
+     * Identificador unico de la entidad declarada, asignado por appendSymbol
+     * cuando el simbolo entra a un scope. Dos variables con el mismo nombre en
+     * scopes distintos (ocultamiento) tienen uid distinto, asi que el generador
+     * de codigo puede nombrarlas sin ambiguedad sin tener que mirar scopes.
+     * uid == 0 significa "no es una entidad declarada" (p. ej. una constante).
+     */
+    int uid;
     DataType type;
     SymbolType symbolType;
     struct NodeAST *parameters;

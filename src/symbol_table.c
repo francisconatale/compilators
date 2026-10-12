@@ -10,7 +10,8 @@ Symbol *newSymbol(const char *id, SymbolType symbolType, DataType type, NodeAST 
     symbol->type = type;
     symbol->parameters = parameters;
     symbol->id = (id != NULL) ? strdup(id) : NULL;
-    
+    symbol->uid = 0; // lo asigna appendSymbol al declararse; 0 = no declarado
+
     return symbol;
 }
 
@@ -41,9 +42,19 @@ Scope* createScope(int level, Scope *parent, DataType returnType) {
     return scope;
 }
 
+// Fuente de los uid: declarar un simbolo es lo que lo convierte en una entidad
+// con identidad propia, y appendSymbol es el unico lugar por donde eso pasa
+// (variables, parametros y metodos). Arranca en 1 para que 0 siga significando
+// "simbolo no declarado".
+static int next_symbol_uid = 1;
+
 void appendSymbol(Scope *scope, Symbol *symbol) {
     if (!scope || !symbol) return;
-    
+
+    if (symbol->uid == 0) {
+        symbol->uid = next_symbol_uid++;
+    }
+
     if (scope->symbol_count >= scope->symbol_capacity) {
         scope->symbol_capacity *= 2;
         scope->symbols = realloc(scope->symbols, sizeof(Symbol*) * scope->symbol_capacity);
@@ -129,9 +140,27 @@ void analyzeAssignmentNode(NodeAST *node, Scope *current_scope) {
             semanticError(node->line, "Asignacion a variable no declarada '%s'.", node->symbol->id);
         } else {
             varType = resolvedSymbol->type;
+
+            // La gramatica crea dos simbolos nuevos para el destino de la
+            // asignacion (uno para este nodo y otro para su ID_NODE hijo), sin
+            // tipo y sin relacion con la tabla. Los reapuntamos al simbolo
+            // declarado para que el generador de codigo sepa a que variable se
+            // esta asignando -- con su uid y su tipo -- sin volver a resolver
+            // nombres. Los duplicados quedan huerfanos a proposito: liberarlos
+            // haria que un segundo recorrido del mismo AST leyera memoria ya
+            // devuelta.
+            node->symbol = resolvedSymbol;
+            node->type = varType;
+
+            NodeAST *target = GET_LEFT(node);
+            if (target != NULL && target->nodeType == ID_NODE) {
+                target->symbol = resolvedSymbol;
+                target->type = varType;
+            }
         }
     }
-    
+
+
     // verifica la expresion y que los tipos coincidan
     if (node->childCount > 1 && node->children[1] != NULL) {
         DataType exprType = analyzeExpression(node->children[1], current_scope);
