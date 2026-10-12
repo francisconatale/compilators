@@ -204,6 +204,11 @@ int main(int argc, char** argv) {
     if (yyparse() != 0) {
         // yyerror ya reporto el error sintactico por stderr
         exit_code = 1;
+    } else if (lexical_errors > 0) {
+        // El lexer descarta los simbolos invalidos, asi que el parseo puede
+        // terminar bien sobre una entrada que igual era incorrecta.
+        fprintf(stderr, "\n\033[1;31mCompilacion abortada: se encontraron %d errores lexicos.\033[0m\n", lexical_errors);
+        exit_code = 1;
     } else {
         printf("--- Analisis sintactico sin errores formales. ---\n");
 
