@@ -238,10 +238,10 @@ void printAST(NodeAST *node, int level) {
             printf("Metodo: %s (Retorna %s)\n", node->symbol->id, getDataTypeName(node->type));
             break;
         case VARIABLE_DECLARATION_NODE:
-            printf("Declaracion Variable: %s (Tipo %s)\n", node->symbol->id, getDataTypeName(node->type));
+            printf("Declaracion Variable: %s #%d (Tipo %s)\n", node->symbol->id, node->symbol->uid, getDataTypeName(node->type));
             break;
         case ID_NODE:
-            printf("ID: %s\n", node->symbol->id);
+            printf("ID: %s #%d (Tipo %s)\n", node->symbol->id, node->symbol->uid, getDataTypeName(node->type));
             break;
         case CONSTANT_NODE:
             if (node->symbol->type == TYPE_INT) 
@@ -255,7 +255,7 @@ void printAST(NodeAST *node, int level) {
             printf("Operacion Binaria: %s\n", getOpName(node->operationType));
             break;
         case ASSIGNMENT_NODE:
-            printf("Asignacion\n");
+            printf("Asignacion a: %s #%d (Tipo %s)\n", node->symbol->id, node->symbol->uid, getDataTypeName(node->type));
             break;
         case IF_ELSE_NODE:
             printf("If-Else\n");
