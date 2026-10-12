@@ -197,10 +197,6 @@ tiene que reportar un error semántico y salir con código 1.
 
 ## Problemas conocidos
 
-- **Un error sintáctico termina con código de salida 0.** El `main()` de
-  `src/bison.y` solo retorna 1 cuando hay errores semánticos; si `yyparse()`
-  falla, imprime el error pero sale con 0. Molesta para scripts que miren el
-  código de salida.
 - **Los ejemplos usan extensión `.txt`.** La letra exige `.ctds`, y también una
   CLI (`-target`, `-opt`, `-debug`, `-o`) que todavía no está implementada: hoy
   el compilador toma un único argumento posicional y, si no se le pasa ninguno,

@@ -197,16 +197,24 @@ int main(int argc, char** argv) {
         yyin = stdin;
     }
 
-    if (yyparse() == 0) {
+    // Una sola salida al final, asi el archivo se cierra en todos los caminos
+    // y cualquier fase que falle termina con codigo distinto de 0.
+    int exit_code = 0;
+
+    if (yyparse() != 0) {
+        // yyerror ya reporto el error sintactico por stderr
+        exit_code = 1;
+    } else {
         printf("--- Analisis sintactico sin errores formales. ---\n");
-        printf("\n--- Arbol de Sintaxis Abstracta (AST) ---\n");
+
         Scope *root = analyzeSemantics(raizAST, NULL, TYPE_VOID);
         checkMainMethodExists(root);
-        
+
         if (semantic_errors > 0) {
             fprintf(stderr, "\n\033[1;31mCompilacion abortada: se encontraron %d errores semanticos.\033[0m\n", semantic_errors);
-            return 1;
+            exit_code = 1;
         } else {
+            printf("\n--- Arbol de Sintaxis Abstracta (AST) ---\n");
             printAST(raizAST, 0);
             printf("\n--- Analisis semantico completado sin errores. ---\n");
         }
@@ -215,6 +223,6 @@ int main(int argc, char** argv) {
     if (argc > 1 && yyin) {
         fclose(yyin);
     }
-    return 0;
+    return exit_code;
 }
 #endif
