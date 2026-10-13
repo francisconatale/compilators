@@ -1,0 +1,3 @@
+int duplicar(int n){
+   return m * 2;
+}

@@ -195,7 +195,7 @@ NodeList *resolveVariableDefinition(DataType type, NodeList *identifiers) {
 }
 
 
-static const char* getDataTypeName(DataType type) {
+const char* getDataTypeName(DataType type) {
     switch(type) {
         case TYPE_INT: return "INT";
         case TYPE_BOOL: return "BOOL";

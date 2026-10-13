@@ -69,6 +69,9 @@ int isAssignable(DataType expected, DataType actual);
 
 #include "error_handler.h"
 
+// Variable de contexto: guarda la funcion que se esta analizando actualmente
+static Symbol *current_function = NULL;
+
 // verifica que una variable no sea definida dos veces en un mismo scope
 Symbol* lookupVariableCurrentScope(Scope *scope, const char *id) {
     if (scope == NULL || id == NULL) return NULL;
@@ -84,8 +87,13 @@ Symbol* lookupVariableCurrentScope(Scope *scope, const char *id) {
 }
 // se pasa el type en el scope, para el momento de retornar poder ver que es lo que espera el scope
 void analyzeMethodNode(NodeAST *node, Scope *current_scope, DataType type) {
+    Symbol *prev_function = current_function;
+    current_function = node->symbol;
+
     Scope *child_scope = analyzeSemantics(node, current_scope, type);
     appendChildScope(current_scope, child_scope);
+
+    current_function = prev_function;
 }
 // un bloque no necesariamente necesita hacer un retorno por eso el null
 void analyzeBlockNode(NodeAST *node, Scope *current_scope) {
@@ -126,8 +134,23 @@ void analyzeAssignmentNode(NodeAST *node, Scope *current_scope) {
     }
 }
 
-void analyzeReturnNode(NodeAST *node, Scope *current_scope){
-    // if(!solveTypeOfExpression(node) == current_scope->returnType) semanticError(node->line, "Tipo de expresion incompatible con el metodo")
+void analyzeReturnNode(NodeAST *node, Scope *current_scope) {
+    if (current_function == NULL) {
+        semanticError(node->line, "Sentencia 'return' fuera del cuerpo de una funcion.");
+        return;
+    }
+
+    DataType actualType = TYPE_VOID;
+    if (node->childCount > 0 && node->children[0] != NULL) {
+        actualType = analyzeExpression(node->children[0], current_scope);
+    }
+
+    if (!isAssignable(current_function->type, actualType)) {
+        semanticError(node->line, "Tipo de retorno incompatible en la funcion '%s': se esperaba %s pero se retorno %s.",
+                      current_function->id ? current_function->id : "anonima",
+                      getDataTypeName(current_function->type),
+                      getDataTypeName(actualType));
+    }
 }
 
 int isAssignable(DataType expected, DataType actual) {
@@ -351,6 +374,7 @@ void analyzeNodeSemantics(NodeAST *node, Scope *current_scope) {
 
         case RETURN_NODE:
             analyzeReturnNode(node, current_scope);
+            break;
             
         default:
             for (int i = 0; i < node->childCount; i++) {
