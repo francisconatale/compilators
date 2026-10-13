@@ -57,7 +57,7 @@ El compilador maneja la visibilidad de variables usando punteros `parent` y `chi
 ### 1. Creación de un Nuevo Ámbito
 Cada vez que `analyzeNodeSemantics` se cruza con un `BLOCK_NODE` o un `METHOD_DECLARATION_NODE`, invoca a `analyzeSemantics()` para instanciar un nuevo `Scope`.
 - `level` aumenta en +1 respecto al padre.
-- `returnType` se propaga si es un método (para validar los `return`), o `NULL` si es un bloque normal.
+- `returnType` se propaga de arriba hacia abajo: el método lo define según su firma, y los bloques hijos (`BLOCK_NODE`) lo heredan de su ámbito padre (`current_scope->returnType`) para validar cualquier `return` anidado en $O(1)$.
 - El nuevo scope se inserta en el array `childrens` del padre.
 
 ### 2. Sombreado y Prevención de Colisiones (Shadowing)
@@ -74,12 +74,22 @@ Cuando leemos (`ID_NODE`) o escribimos (`ASSIGNMENT_NODE`) una variable, el comp
 - Repite recursivamente hasta llegar al Scope Global (`level 0`).
 - Si llega al final y retorna `NULL` $\rightarrow$ **Error: Variable no declarada.**
 
----
+### 4. Parámetros de Métodos y su Uso en el Cuerpo
+El AST estructura cada método (`METHOD_DECLARATION_NODE`) con dos ramas principales:
+* `children[0]`: `PARAMETERS_NODE` (hijos de tipo `VARIABLE_DECLARATION_NODE`).
+* `children[1]`: `BLOCK_NODE` (el cuerpo de la función).
 
+Durante el análisis semántico en `analyzeSemantics`:
+1. **Registro:** El método se registra anticipadamente en el ámbito padre para soportar llamadas recursivas.
+2. **Parámetros:** Al procesar `PARAMETERS_NODE`, cada parámetro se inserta en el `Scope` de la función con `appendSymbol()`.
+3. **Cuerpo:** Al analizar `BLOCK_NODE`, se crea un `Scope` hijo cuyo `parent` apunta al `Scope` de la función.
+4. **Uso:** Cuando una sentencia dentro del cuerpo referencia un parámetro, `lookupVariable` no lo encuentra en el bloque local y asciende automáticamente por `parent` al `Scope` de la función, asociando el `Symbol*` y su `DataType` sin ambigüedades.
+
+---
 
 ## Análisis de Tipos (Type Checking)
 
-Durante el recorrido del AST, además de la resolución de variables, se realiza el análisis de tipos de las expresiones matemáticas y llamadas a métodos.
+Durante el recorrido del AST, además de la resolución de variables, se realiza el análisis de tipos de las expresiones matemáticas, retornos, sentencias de control y llamadas a métodos.
 
 El punto de entrada para evaluar el tipo de una expresión es la función `analyzeExpression()`. 
 
@@ -87,6 +97,20 @@ El punto de entrada para evaluar el tipo de una expresión es la función `analy
 Los nodos como las asignaciones (`ASSIGNMENT_NODE`), sentencias de retorno (`RETURN_NODE`), y expresiones condicionales, utilizan `analyzeExpression()` sobre sus sub-expresiones para determinar el `DataType` resultante (ej: `TYPE_INT`, `TYPE_BOOL`, o `TYPE_FLOAT`). 
 
 En el caso de una asignación, el tipo devuelto por la expresión se contrasta contra el tipo estático de la variable destino utilizando la función `isAssignable()`. De no ser compatibles, se dispara un `semanticError` indicando que los tipos no coinciden.
+
+### Validación de Sentencias de Retorno (`RETURN_NODE`)
+El compilador utiliza la variable de contexto `static Symbol *current_function` junto con la herencia de `current_scope->returnType` para validar retornos de forma determinista en $O(1)$:
+1. **Detección fuera de función:** Si `current_function == NULL`, se emite un error indicando que la sentencia `return` está fuera de una función.
+2. **Retorno sin valor (`return;`):** Solo es válido si la función contenedora es `TYPE_VOID`. Si espera un tipo de dato, se emite un error con el nombre del método: *"El metodo 'X' espera un valor de retorno de tipo Y, pero no se especifico ninguno."*
+3. **Retorno con valor (`return <expr>;`):**
+   - Si la función es `TYPE_VOID`, se rechaza: *"El metodo 'X' es void y no deberia retornar un valor."*
+   - Si es no-void, se evalúa `actualType = analyzeExpression(expr, current_scope)` y se comprueba compatibilidad con `isAssignable(expectedType, actualType)`. De no coincidir, se reporta: *"El tipo de retorno no coincide en el metodo 'X': se esperaba Y pero se obtuvo Z."*
+
+### Sentencias de Control (`IF_ELSE_NODE` y `WHILE_NODE`)
+En `analyzeIfElseNode` y `analyzeWhileNode`:
+* Se extrae la expresión de condición (`GET_CONDITION(node)`).
+* Se evalúa mediante `analyzeExpression(condicion, current_scope)`.
+* Se valida estrictamente que el tipo resultante sea `TYPE_BOOL`. De lo contrario, se emite error semántico (*"La condicion debe ser de tipo BOOL"*).
 
 ### Operaciones Binarias
 Para evaluar los árboles de operaciones matemáticas (`BINARYOPERATOR_NODE`), `analyzeBinaryOperator` llama recursivamente a `analyzeExpression` sobre los operandos izquierdo y derecho. Luego delega en `resolveBinaryOperation` para inferir el tipo resultante según el operador:
@@ -102,3 +126,6 @@ Para los `METHOD_CALL_NODE`, el analizador de tipos valida que:
 1. La cantidad de argumentos invocados coincida exactamente con la cantidad de parámetros de la firma del método.
 2. Cada argumento suministrado (que se evalúa con `analyzeExpression`) pase el chequeo de compatibilidad de tipos (`isAssignable()`) respecto a su parámetro esperado. 
 Finalmente, la expresión en su conjunto toma como tipo resultante el `type` declarado del método.
+
+### Verificación Estructural del Programa
+Al finalizar el análisis de todos los nodos, la función `checkMainMethodExists(globalScope)` verifica que exista una función con identificador `"main"` en el ámbito global. Si no existe, se emite un error semántico informando que falta el punto de entrada del programa.
