@@ -174,6 +174,8 @@ NodeAST *newBoolLiteralNode(int value);
  */
 void freeSymbol(Symbol *symbol);
 
+const char* getDataTypeName(DataType type);
+
 void printAST(NodeAST *node, int level);
 const char* getDataTypeName(DataType type);
 

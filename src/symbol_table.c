@@ -10,7 +10,8 @@ Symbol *newSymbol(const char *id, SymbolType symbolType, DataType type, NodeAST 
     symbol->type = type;
     symbol->parameters = parameters;
     symbol->id = (id != NULL) ? strdup(id) : NULL;
-    
+    symbol->uid = 0; // lo asigna appendSymbol al declararse; 0 = no declarado
+
     return symbol;
 }
 
@@ -41,9 +42,19 @@ Scope* createScope(int level, Scope *parent, DataType returnType) {
     return scope;
 }
 
+// Fuente de los uid: declarar un simbolo es lo que lo convierte en una entidad
+// con identidad propia, y appendSymbol es el unico lugar por donde eso pasa
+// (variables, parametros y metodos). Arranca en 1 para que 0 siga significando
+// "simbolo no declarado".
+static int next_symbol_uid = 1;
+
 void appendSymbol(Scope *scope, Symbol *symbol) {
     if (!scope || !symbol) return;
-    
+
+    if (symbol->uid == 0) {
+        symbol->uid = next_symbol_uid++;
+    }
+
     if (scope->symbol_count >= scope->symbol_capacity) {
         scope->symbol_capacity *= 2;
         scope->symbols = realloc(scope->symbols, sizeof(Symbol*) * scope->symbol_capacity);
@@ -65,7 +76,10 @@ void appendChildScope(Scope *parent, Scope *child) {
 Scope* analyzeSemantics(NodeAST *root, Scope *parent, DataType returnType);
 void analyzeNodeSemantics(NodeAST *node, Scope *current_scope);
 DataType analyzeExpression(NodeAST *node, Scope *scope);
+DataType analyzeMethodCall(NodeAST *node, Scope *scope, int isExpression);
 int isAssignable(DataType expected, DataType actual);
+void analyzeIfElseNode(NodeAST *node, Scope *current_scope);
+void analyzeWhileNode(NodeAST *node, Scope *current_scope);
 
 #include "error_handler.h"
 
@@ -87,6 +101,17 @@ Symbol* lookupVariableCurrentScope(Scope *scope, const char *id) {
 }
 // se pasa el type en el scope, para el momento de retornar poder ver que es lo que espera el scope
 void analyzeMethodNode(NodeAST *node, Scope *current_scope, DataType type) {
+    // El metodo se declara en el scope que lo contiene ANTES de analizar su cuerpo, asi
+    // queda visible para si mismo (recursion) y para los metodos declarados mas abajo.
+    if (node->symbol) {
+        Symbol *existing = lookupVariableCurrentScope(current_scope, node->symbol->id);
+        if (existing != NULL) {
+            semanticError(node->line, "El metodo '%s' ya fue declarado previamente en este ambito.", node->symbol->id);
+        } else {
+            appendSymbol(current_scope, node->symbol);
+        }
+    }
+
     Symbol *prev_function = current_function;
     current_function = node->symbol;
 
@@ -95,9 +120,11 @@ void analyzeMethodNode(NodeAST *node, Scope *current_scope, DataType type) {
 
     current_function = prev_function;
 }
-// un bloque no necesariamente necesita hacer un retorno por eso el null
+// un bloque no define un contexto de retorno propio: hereda el del scope que lo contiene.
+// El cuerpo de un metodo es un BLOCK_NODE, asi que de aca sale el tipo contra el que se
+// validan los return de ese metodo.
 void analyzeBlockNode(NodeAST *node, Scope *current_scope) {
-    Scope *child_scope = analyzeSemantics(node, current_scope, TYPE_VOID);
+    Scope *child_scope = analyzeSemantics(node, current_scope, current_scope->returnType);
     appendChildScope(current_scope, child_scope);
 }
 
@@ -121,9 +148,27 @@ void analyzeAssignmentNode(NodeAST *node, Scope *current_scope) {
             semanticError(node->line, "Asignacion a variable no declarada '%s'.", node->symbol->id);
         } else {
             varType = resolvedSymbol->type;
+
+            // La gramatica crea dos simbolos nuevos para el destino de la
+            // asignacion (uno para este nodo y otro para su ID_NODE hijo), sin
+            // tipo y sin relacion con la tabla. Los reapuntamos al simbolo
+            // declarado para que el generador de codigo sepa a que variable se
+            // esta asignando -- con su uid y su tipo -- sin volver a resolver
+            // nombres. Los duplicados quedan huerfanos a proposito: liberarlos
+            // haria que un segundo recorrido del mismo AST leyera memoria ya
+            // devuelta.
+            node->symbol = resolvedSymbol;
+            node->type = varType;
+
+            NodeAST *target = GET_LEFT(node);
+            if (target != NULL && target->nodeType == ID_NODE) {
+                target->symbol = resolvedSymbol;
+                target->type = varType;
+            }
         }
     }
-    
+
+
     // verifica la expresion y que los tipos coincidan
     if (node->childCount > 1 && node->children[1] != NULL) {
         DataType exprType = analyzeExpression(node->children[1], current_scope);
@@ -140,16 +185,28 @@ void analyzeReturnNode(NodeAST *node, Scope *current_scope) {
         return;
     }
 
-    DataType actualType = TYPE_VOID;
-    if (node->childCount > 0 && node->children[0] != NULL) {
-        actualType = analyzeExpression(node->children[0], current_scope);
+    NodeAST *expression = GET_EXPRESSION(node);
+    DataType expectedType = current_scope->returnType;
+    const char *funcName = current_function->id ? current_function->id : "anonima";
+
+    if (expression == NULL) {
+        // return; sin expresion: solo es valido si el metodo es void
+        if (expectedType != TYPE_VOID) {
+            semanticError(node->line, "El metodo '%s' espera un valor de retorno de tipo %s, pero no se especifico ninguno.", funcName, getDataTypeName(expectedType));
+        }
+        return;
     }
 
-    if (!isAssignable(current_function->type, actualType)) {
-        semanticError(node->line, "Tipo de retorno incompatible en la funcion '%s': se esperaba %s pero se retorno %s.",
-                      current_function->id ? current_function->id : "anonima",
-                      getDataTypeName(current_function->type),
-                      getDataTypeName(actualType));
+    // return <expr>; con expresion: el metodo tiene que ser no-void
+    if (expectedType == TYPE_VOID) {
+        semanticError(node->line, "El metodo '%s' es void y no deberia retornar un valor.", funcName);
+        return;
+    }
+
+    DataType actualType = analyzeExpression(expression, current_scope);
+
+    if (actualType != TYPE_ERROR && !isAssignable(expectedType, actualType)) {
+        semanticError(node->line, "El tipo de retorno no coincide en el metodo '%s': se esperaba %s pero se obtuvo %s.", funcName, getDataTypeName(expectedType), getDataTypeName(actualType));
     }
 }
 
@@ -176,7 +233,7 @@ DataType analyzeIdentifier(NodeAST *node, Scope *scope) {
 
 DataType analyzeExpression(NodeAST *node, Scope *scope);
 
-DataType analyzeMethodCall(NodeAST *node, Scope *scope) {
+DataType analyzeMethodCall(NodeAST *node, Scope *scope, int isExpression) {
 
     Symbol *method = lookupVariable(
         scope,
@@ -185,6 +242,11 @@ DataType analyzeMethodCall(NodeAST *node, Scope *scope) {
 
     if (method == NULL) {
         semanticError(node->line, "Método no declarado: %s", node->symbol->id);
+        return TYPE_ERROR;
+    }
+
+    if (isExpression && method->type == TYPE_VOID) {
+        semanticError(node->line, "El metodo '%s' es void y no puede usarse como expresion.", node->symbol->id);
         return TYPE_ERROR;
     }
 
@@ -231,7 +293,9 @@ DataType resolveBinaryOperation(
             if (left == TYPE_INT && right == TYPE_INT)
                 return TYPE_INT;
 
-            if (left == TYPE_FLOAT && right == TYPE_FLOAT)
+            if ((left == TYPE_FLOAT || left == TYPE_INT) &&
+                (right == TYPE_FLOAT || right == TYPE_INT) &&
+                (left == TYPE_FLOAT || right == TYPE_FLOAT))
                 return TYPE_FLOAT;
 
             return TYPE_ERROR;
@@ -325,7 +389,7 @@ DataType analyzeExpression(NodeAST *node, Scope *scope) {
             return node->type;
 
         case METHOD_CALL_NODE:
-            return analyzeMethodCall(node, scope);
+            return analyzeMethodCall(node, scope, 1); // 1 porque viene de Expression
 
         case BINARYOPERATOR_NODE:
             return analyzeBinaryOperator(node, scope);
@@ -360,6 +424,10 @@ void analyzeNodeSemantics(NodeAST *node, Scope *current_scope) {
             analyzeMethodNode(node, current_scope, node->type);
             break;
             
+        case METHOD_CALL_NODE:
+            analyzeMethodCall(node, current_scope, 0); // 0 porque viene de Statement
+            break;
+
         case VARIABLE_DECLARATION_NODE:
             analyzeVariableDeclarationNode(node, current_scope);
             break;
@@ -375,7 +443,14 @@ void analyzeNodeSemantics(NodeAST *node, Scope *current_scope) {
         case RETURN_NODE:
             analyzeReturnNode(node, current_scope);
             break;
-            
+ 
+        case IF_ELSE_NODE:
+            analyzeIfElseNode(node, current_scope);
+            break;
+
+        case WHILE_NODE:
+            analyzeWhileNode(node, current_scope);
+            break;
         default:
             for (int i = 0; i < node->childCount; i++) {
                 analyzeNodeSemantics(node->children[i], current_scope);
@@ -411,4 +486,54 @@ Symbol* lookupVariable(Scope *scope, const char *id) {
         }
     }
     return lookupVariable(scope->parent, id);
+}
+
+void analyzeWhileNode(NodeAST *node, Scope *current_scope) {
+    NodeAST *condition = GET_CONDITION(node);
+    DataType conditionType = analyzeExpression(condition, current_scope);
+
+    if (conditionType != TYPE_ERROR && conditionType != TYPE_BOOL) {
+        semanticError(node->line, "La condicion del while debe ser de tipo BOOL, pero es %s.", getDataTypeName(conditionType));
+    }
+
+    NodeAST *body = GET_IF_BLOCK(node);
+    analyzeNodeSemantics(body, current_scope);
+}
+
+void analyzeIfElseNode(NodeAST *node, Scope *current_scope) {
+    NodeAST *condition = GET_CONDITION(node);
+    DataType conditionType = analyzeExpression(condition, current_scope);
+
+    if (conditionType != TYPE_ERROR && conditionType != TYPE_BOOL) {
+        semanticError(node->line, "La condicion del if debe ser de tipo BOOL, pero es %s.", getDataTypeName(conditionType));
+    }
+
+    NodeAST *ifBlock = GET_IF_BLOCK(node);
+    analyzeNodeSemantics(ifBlock, current_scope);
+
+    NodeAST *elseBlock = GET_ELSE_BLOCK(node);
+    if (elseBlock != NULL) {
+        analyzeNodeSemantics(elseBlock, current_scope);
+    }
+}
+
+void checkMainMethodExists(Scope *globalScope) {
+    Symbol *mainSymbol = lookupVariableCurrentScope(globalScope, "main");
+
+    if (mainSymbol == NULL) {
+        semanticError(0, "El programa no contiene la definicion del metodo 'main'.");
+        return;
+    }
+
+    if (mainSymbol->symbolType != METHOD_SYMBOL) {
+        semanticError(0, "'main' debe ser un metodo, no una variable.");
+        return;
+    }
+
+    NodeAST *parametersNode = mainSymbol->parameters;
+    int paramCount = parametersNode ? parametersNode->childCount : 0;
+
+    if (paramCount != 0) {
+        semanticError(0, "El metodo 'main' no debe tener parametros.");
+    }
 }
