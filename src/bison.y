@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ast.h"
+#include "symbol_table.h"
+#include "semantic_analyzer.h"
 #include "error_handler.h"
 #include "string_builder.h"
 extern int yylex(void);
