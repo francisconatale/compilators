@@ -113,11 +113,12 @@ DataType analyzeMethodCall(NodeAST *node, Scope *scope, int isExpression) {
     node->type = method->type;
     return method->type;
 }
-
+// recorrido post-order
+// {dataType, id -> (valor literal o variable temporal para generacion de codigo)}
 DataType analyzeBinaryOperator(NodeAST *node, Scope *scope) {
-    DataType leftType = analyzeExpression(GET_LEFT(node), scope);
-    DataType rightType = TYPE_VOID;
-
+    DataType leftType = analyzeExpression(GET_LEFT(node), scope); //
+    DataType rightType = TYPE_VOID; // default
+    
     if (GET_RIGHT(node) != NULL) {
         rightType = analyzeExpression(GET_RIGHT(node), scope);
     }

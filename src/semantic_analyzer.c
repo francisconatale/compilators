@@ -25,7 +25,6 @@ static void analyzeMethodNode(NodeAST *node, Scope *current_scope, DataType type
             semanticError(node->line, "El metodo '%s' ya fue declarado previamente en este ambito.", node->symbol->id);
         } else {
             appendSymbol(current_scope, node->symbol);
-            buildStringf("%s :\n", node->symbol->id);
         }
     }
 
