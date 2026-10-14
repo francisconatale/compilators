@@ -1,42 +1,36 @@
 #ifndef AST_H
 #define AST_H
 
-/* Tipos semanticos */
-typedef enum {
-    TYPE_INT,
-    TYPE_BOOL,
-    TYPE_FLOAT,
-    TYPE_VOID
-} DataType;
+#include "types.h"
+#include "symbol_table.h"
 
 typedef enum {
-    TYPE_NODE,
+    TYPE_NODE, 
     VARIABLE_DECLARATION_NODE,
-    ID_NODE,
-    ASSIGNMENT_NODE,
-    CONSTANT_NODE,
-    RETURN_NODE,
+    ID_NODE, // simbolo que guarda el valor del id
+    ASSIGNMENT_NODE, // solo sirve a la hora de parsear
+    CONSTANT_NODE, // tiene simbolo pero no tiene un id 
+    RETURN_NODE, 
     IF_ELSE_NODE,
     WHILE_NODE,
-    BLOCK_NODE,
-    METHOD_CALL_NODE
+    BINARYOPERATOR_NODE,
+    BLOCK_NODE, // simbolo que guarda lista de sentenciasq
+    METHOD_CALL_NODE, 
+    PARAMETERS_NODE, // no hace falta simbolo
+    METHOD_DECLARATION_NODE // simbolo guarda lista de parametros y bloque
 } NodeType;
-
-typedef struct Symbol {
-    char *id;
-    char *value;
-} Symbol;
-
 
 typedef struct NodeAST {
     NodeType nodeType;
     DataType type;
     Symbol *symbol;
+    OperationType operationType; // si es binOp le guardamos un operador, y si no va NULL
     int line;
     struct NodeAST **children;
     int childCount;
 } NodeAST;
 
+#define GET_EXPRESSION(node)  ((node)->childCount > 0 ? (node)->children[0] : NULL)
 #define GET_LEFT(node)  ((node)->childCount > 0 ? (node)->children[0] : NULL)
 #define GET_RIGHT(node) ((node)->childCount > 1 ? (node)->children[1] : NULL)
 
@@ -47,16 +41,8 @@ typedef struct NodeAST {
 typedef struct NodeList {
     NodeAST *node;
     struct NodeList *next;
+    struct NodeList *tail; // puntero al último elemento (solo válido en el nodo cabecera)
 } NodeList;
-
-/**
- * Crea un Symbol reservado dinámicamente copiando id y value.
- *
- * @param id Identificador del símbolo.
- * @param value Valor del símbolo.
- * @return Nuevo símbolo creado.
- */
-Symbol *newSymbol(const char *id, const char *value);
 
 /**
  * Crea un nuevo nodo AST. left, mid y right se empaquetan en children.
@@ -71,13 +57,45 @@ Symbol *newSymbol(const char *id, const char *value);
 NodeAST *newNode(NodeType nodeType, Symbol *symbol, NodeAST *left, NodeAST *mid, NodeAST *right);
 
 /**
+ * Crea un nuevo nodo AST. left, mid y right se empaquetan en children.
+ *
+ * @param operator tipo del operador
+ * @param left Nodo hijo izquierdo 
+ * @param right Nodo hijo derecho (opcional).
+ * @return Nuevo nodo creado.
+ */
+NodeAST *newBinaryOperatorNode(OperationType operator, NodeAST *left, NodeAST *right);
+
+/**
  * Crea una lista enlazada transitoria para el parsing en bison.y.
  *
  * @param node Nodo a agregar a la lista.
  * @param next Siguiente elemento en la lista.
  * @return Nueva lista de nodos.
  */
-NodeList *newNodeList(NodeAST *node, NodeList *next);
+NodeList *initializeTemporaryList(NodeAST *node, NodeList *next);
+
+/**
+ * Añade un nodo al final de una lista enlazada iterándola.
+ * Es útil para mantener el orden correcto en recursión por la izquierda.
+ *
+ * @param list Lista original.
+ * @param node Nodo a agregar al final.
+ * @return La lista actualizada (o la nueva lista si list era NULL).
+ */
+NodeList *appendToTemporaryList(NodeList *list, NodeAST *node);
+
+/**
+ * Crea un nodo para la declaracion de metodo
+ *
+ * @param returnType tipo del metodo
+ * @param methodName nombre del metodo
+ * @param parameters lista de parametros que recibe el metodo 
+ * @param body lista de sentencias que tiene el metodo
+ * @return  nodo de metodo
+ */
+NodeAST *newMethodDeclaration(DataType returnType, char *methodName, NodeAST *parameters, NodeAST *body);
+
 
 /**
  * Vuelca los nodos de NodeList al arreglo children[] de parent y libera la lista.
@@ -85,7 +103,7 @@ NodeList *newNodeList(NodeAST *node, NodeList *next);
  * @param parent Nodo padre donde se adjuntarán los hijos.
  * @param list Lista de nodos a volcar.
  */
-void attachChildren(NodeAST *parent, NodeList *list);
+void resolveTemporaryList(NodeAST *parent, NodeList *list);
 
 /**
  * Concatena dos NodeList sin reservar nueva memoria.
@@ -103,7 +121,7 @@ NodeList *mergeNodeLists(NodeList *list1, NodeList *list2);
  * @param identifiers Lista de identificadores.
  * @return Lista con declaraciones unitarias.
  */
-NodeList *flattenVariableDeclarations(DataType type, NodeList *identifiers);
+NodeList *resolveVariableDefinition(DataType type, NodeList *identifiers);
 
 /**
  * Crea un CONSTANT_NODE para un literal numérico/booleano.
@@ -112,13 +130,11 @@ NodeList *flattenVariableDeclarations(DataType type, NodeList *identifiers);
  * @param value Valor de la constante como cadena de texto.
  * @return Nuevo nodo constante creado.
  */
-NodeAST *newLiteralNode(DataType type, const char *value);
+NodeAST *newIntLiteralNode(int value);
+NodeAST *newFloatLiteralNode(float value);
+NodeAST *newBoolLiteralNode(int value);
 
-/**
- * Libera un Symbol y sus cadenas internas.
- *
- * @param symbol Símbolo a liberar.
- */
-void freeSymbol(Symbol *symbol);
+void printAST(NodeAST *node, int level);
+const char* getDataTypeName(DataType type);
 
 #endif /* AST_H */

@@ -3,7 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ast.h"
-
+#include "symbol_table.h"
+#include "semantic_analyzer.h"
+#include "error_handler.h"
+#include "string_builder.h"
+#include "intermediate_code.h"
 extern int yylex(void);
 extern FILE *yyin;
 extern int yylineno;
@@ -13,6 +17,10 @@ void yyerror(const char *s) {
 
 NodeAST *raizAST = NULL;
 %}
+
+%code requires {
+#include "ast.h"
+}
 
 %union {
   int intval;
@@ -39,59 +47,70 @@ NodeAST *raizAST = NULL;
 %left '*' '/' '%'  /* multiplicación, división, resto */
 %right NOT UMINUS  /* negación lógica ! y menos unario */
 
-%type <node> Program Statement Expression MethodCall Block
+%type <node> Program Statement Expression MethodCall Block MethodDeclaration
 %type <dtype> Type 
-%type <list> VariableDeclaration IdentifierList ListArguments VariableDeclarations Statements
+%type <list> VariableDeclaration IdentifierList ListArguments VariableDeclarations Statements ParameterList Parameters Declarations Declaration
 
 %%
     Program
-    : Declarations { $$ = $1; } // wrapper de declarations
+    : Declarations { $$ = newNode(BLOCK_NODE, NULL, NULL, NULL, NULL); resolveTemporaryList($$, $1); raizAST = $$; }
     ;
 
     Declarations
     : /* empty */ { $$ = NULL; }
-    | Declaration Declarations { $$ = newNodeList($1, $2); } // wrapper de variable/method, delega la resolucion del nodo y anida lo que resta resolver
+    | Declaration Declarations { $$ = mergeNodeLists($1, $2); } 
     ;
 
     Declaration
-    : VariableDeclaration { $$ = $1; } // 
-    | MethodDeclaration { $$ = $1; }
+    : VariableDeclaration { $$ = $1; }  
+    | MethodDeclaration { $$ = initializeTemporaryList($1, NULL); }
     ;
 
 
     VariableDeclaration
     : Type IdentifierList ';' {
-        $$ = flattenVariableDeclarations($1, $2);
+        $$ = resolveVariableDefinition($1, $2);
+    }
+    ;
+    MethodDeclaration
+    : Type ID '(' ParameterList ')' Block { 
+        NodeAST *parameters = newNode(PARAMETERS_NODE, NULL, NULL, NULL, NULL); 
+        resolveTemporaryList(parameters, $4); 
+        $$ = newMethodDeclaration($1, $2, parameters, $6); 
+    }
+    | VOID ID '(' ParameterList ')' Block { 
+        NodeAST *parameters = newNode(PARAMETERS_NODE, NULL, NULL, NULL, NULL); 
+        resolveTemporaryList(parameters, $4); 
+        $$ = newMethodDeclaration(TYPE_VOID, $2, parameters, $6); 
     }
     ;
 
-
-    MethodDeclaration
-    : Type ID '(' ParameterList ')' Block
-    | VOID ID '(' ParameterList ')' Block
-    ;
-
     ParameterList
-    : /* empty */
-    | Parameters
+    : /* empty */ { $$ = NULL; }
+    | Parameters { $$ = $1; }
     ;
 
     Parameters
-    : Type ID
-    | Parameters ',' Type ID
+    : Type ID {
+        NodeAST *decl = newNode(VARIABLE_DECLARATION_NODE, newSymbol($2, ID_SYMBOL, $1, NULL), NULL, NULL, NULL);
+        decl->type = $1;
+        $$ = initializeTemporaryList(decl, NULL); 
+    }
+    | Parameters ',' Type ID {
+        NodeAST *decl = newNode(VARIABLE_DECLARATION_NODE, newSymbol($4, ID_SYMBOL, $3, NULL), NULL, NULL, NULL);
+        decl->type = $3;
+        $$ = appendToTemporaryList($1, decl);
+    }
     ;
-
-
-     IdentifierList
-    : ID                /* { $$ = newNodeList(newNode(ID_NODE, newSymbol($1, NULL), NULL, NULL, NULL), NULL); } */
-    | IdentifierList ',' ID      /* {
-        NodeList *l = $1;
-        while (l->next) l = l->next;
-        l->next = newNodeList(newNode(ID_NODE, newSymbol($3, NULL), NULL, NULL, NULL), NULL);
-        $$ = $1;
-    } */
+    
+    IdentifierList
+    : ID { 
+        $$ = initializeTemporaryList(newNode(ID_NODE, newSymbol($1, ID_SYMBOL, TYPE_VOID, NULL), NULL, NULL, NULL), NULL); 
+    }
+    | IdentifierList ',' ID { 
+        $$ = appendToTemporaryList($1, newNode(ID_NODE, newSymbol($3, ID_SYMBOL, TYPE_VOID, NULL), NULL, NULL, NULL)); 
+    }
     ;
-
     
     Type 
     : INT       { $$ = TYPE_INT; }
@@ -99,80 +118,71 @@ NodeAST *raizAST = NULL;
     | FLOAT     { $$ = TYPE_FLOAT; }
     ;
 
-
-
     Statements
-    : /* empty */                  /* { $$ = NULL; } */
-    | Statement Statements         /* { $$ = newNodeList($1, $2); } */
+    : /* empty */                  { $$ = NULL; }
+    | Statement Statements         { $$ = initializeTemporaryList($1, $2); }
     ;
 
-   
-
     Statement
-    : ID '=' Expression ';' /* { $$ = newNode(ASSIGNMENT_NODE, newSymbol($1, NULL), newNode(ID_NODE, newSymbol($1, NULL), NULL, NULL, NULL), NULL, $3); } */
-    | MethodCall ';' /* {$$ = $1; } */
-    | RETURN Expression ';' /* { $$ = newNode(RETURN_NODE, NULL, $2, NULL, NULL); } */
-    | RETURN ';'
-    | Block /* { $$ = $1; } */
-    | WHILE '(' Expression ')' Block /* { $$ = newNode(WHILE_NODE, NULL, $3, NULL, $5); } */
-    | IF '(' Expression ')' Block
-    | IF '(' Expression ')' Block ELSE Block /* { $$ = newNode(IF_ELSE_NODE, NULL, $3, $5, $7); } */
-    | ';' /* { } */
+    : ID '=' Expression ';' { $$ = newNode(ASSIGNMENT_NODE, newSymbol($1, ID_SYMBOL, TYPE_VOID, NULL), newNode(ID_NODE, newSymbol($1, ID_SYMBOL, TYPE_VOID, NULL), NULL, NULL, NULL), NULL, $3); }
+    | MethodCall ';' {$$ = $1; }
+    | RETURN Expression ';' { $$ = newNode(RETURN_NODE, NULL, $2, NULL, NULL); }
+    | RETURN ';' { $$ = newNode(RETURN_NODE, NULL, NULL, NULL, NULL); }
+    | Block { $$ = $1; }
+    | WHILE '(' Expression ')' Block { $$ = newNode(WHILE_NODE, NULL, $3, NULL, $5); }
+    | IF '(' Expression ')' Block { $$ = newNode(IF_ELSE_NODE, NULL, $3, $5, NULL); }
+    | IF '(' Expression ')' Block ELSE Block { $$ = newNode(IF_ELSE_NODE, NULL, $3, $5, $7); }
+    | ';' { $$ = NULL; }
     ;
 
     MethodCall
-    : ID '(' ')'
-    | ID '(' ListArguments ')' /* {
-        NodeAST *call = newNode(METHOD_CALL_NODE, newSymbol($1, NULL), NULL, NULL, NULL);
-        attachChildren(call, $3);
+    : ID '(' ')' { $$ = newNode(METHOD_CALL_NODE, newSymbol($1, METHOD_SYMBOL, TYPE_VOID, NULL), NULL, NULL, NULL); }
+    | ID '(' ListArguments ')' {
+        NodeAST *call = newNode(METHOD_CALL_NODE, newSymbol($1, METHOD_SYMBOL, TYPE_VOID, NULL), NULL, NULL, NULL);
+        resolveTemporaryList(call, $3);
         $$ = call;
-    } */
+    }
     ;
 
     ListArguments
-    : Expression /* { $$ = newNodeList($1, NULL); } */
-    | ListArguments ',' Expression /* {
-        NodeList *l = $1;
-        while (l->next) l = l->next;
-        l->next = newNodeList($3, NULL);
-        $$ = $1;
-    } */
+    : Expression { $$ = initializeTemporaryList($1, NULL); }
+    | ListArguments ',' Expression { $$ = appendToTemporaryList($1, $3); }
     ;
 
     Expression
-    : ID
-    | MethodCall
-    | FLOAT_CONST /* { $$ = newLiteralNode(TYPE_FLOAT, NULL); } */
-    | BOOL_CONST  /* { $$ = newLiteralNode(TYPE_BOOL, NULL); } */
-    | NUMBER      /* { $$ = newLiteralNode(TYPE_INT, NULL); } */
-    | '-' Expression %prec UMINUS
-    | NOT Expression
-    | '(' Expression ')'
-    | Expression '+' Expression
-    | Expression '-' Expression
-    | Expression '*' Expression
-    | Expression '/' Expression
-    | Expression '%' Expression
-    | Expression '<' Expression
-    | Expression '>' Expression
-    | Expression EQ Expression
-    | Expression AND Expression
-    | Expression OR Expression
+    : ID { $$ = newNode(ID_NODE, newSymbol($1, ID_SYMBOL, TYPE_VOID, NULL), NULL, NULL, NULL) ; }
+    | MethodCall { $$ = $1; }
+    | FLOAT_CONST  { $$ = newFloatLiteralNode($1); } 
+    | BOOL_CONST   { $$ = newBoolLiteralNode($1); }
+    | NUMBER       { $$ = newIntLiteralNode($1); }
+    | '-' Expression %prec UMINUS { $$ = newBinaryOperatorNode(OP_NEGATIVE, $2, NULL); }
+    | NOT Expression { $$ = newBinaryOperatorNode(OP_NEGATION, $2, NULL); }
+    | '(' Expression ')' { $$ = $2; }
+    | Expression '+' Expression { $$ = newBinaryOperatorNode(OP_ADD, $1, $3); }
+    | Expression '-' Expression { $$ = newBinaryOperatorNode(OP_SUB, $1, $3); }
+    | Expression '*' Expression { $$ = newBinaryOperatorNode(OP_MUL, $1, $3); }
+    | Expression '/' Expression { $$ = newBinaryOperatorNode(OP_DIV, $1, $3); }
+    | Expression '%' Expression { $$ = newBinaryOperatorNode(OP_MOD, $1, $3); }
+    | Expression '<' Expression { $$ = newBinaryOperatorNode(OP_LT, $1, $3); }
+    | Expression '>' Expression { $$ = newBinaryOperatorNode(OP_GT, $1, $3); }
+    | Expression EQ Expression { $$ = newBinaryOperatorNode(OP_EQ, $1, $3); }
+    | Expression AND Expression { $$ = newBinaryOperatorNode(OP_AND, $1, $3); }
+    | Expression OR Expression { $$ = newBinaryOperatorNode(OP_OR, $1, $3); }
     ;
 
     Block
     : '{' VariableDeclarations Statements '}'
-        /* {
-        NodeAST *block = newNode(BLOCK_NODE, NULL, NULL, NULL, NULL);
-        attachChildren(block, mergeNodeLists($2, $3));
-        $$ = block;
-} */
+        {
+            NodeAST *block = newNode(BLOCK_NODE, NULL, NULL, NULL, NULL);
+            resolveTemporaryList(block, mergeNodeLists($2, $3));
+            $$ = block;
+        }
     ;
 
 
     VariableDeclarations
-    : /* empty */                               /* { $$ = NULL; } */
-    | VariableDeclaration VariableDeclarations  /* { $$ = mergeNodeLists($1, $2); } */
+    : /* empty */                                { $$ = NULL; } 
+    | VariableDeclaration VariableDeclarations   { $$ = mergeNodeLists($1, $2); } 
     ;
 
 
@@ -190,13 +200,37 @@ int main(int argc, char** argv) {
         yyin = stdin;
     }
 
-    if (yyparse() == 0) {
+    // Una sola salida al final, asi el archivo se cierra en todos los caminos
+    // y cualquier fase que falle termina con codigo distinto de 0.
+    int exit_code = 0;
+
+    if (yyparse() != 0) {
+        // yyerror ya reporto el error sintactico por stderr
+        exit_code = 1;
+    } else if (lexical_errors > 0) {
+        // El lexer descarta los simbolos invalidos, asi que el parseo puede
+        // terminar bien sobre una entrada que igual era incorrecta.
+        fprintf(stderr, "\n\033[1;31mCompilacion abortada: se encontraron %d errores lexicos.\033[0m\n", lexical_errors);
+        exit_code = 1;
+    } else {
         printf("--- Analisis sintactico sin errores formales. ---\n");
+        Scope *root = analyzeSemantics(raizAST, NULL, TYPE_VOID);
+        checkMainMethodExists(root);
+        if (semantic_errors > 0) {
+            fprintf(stderr, "\n\033[1;31mCompilacion abortada: se encontraron %d errores semanticos.\033[0m\n", semantic_errors);
+            exit_code = 1;
+        } else {
+            printf("\n--- Arbol de Sintaxis Abstracta (AST) ---\n");
+            printAST(raizAST, 0);
+            printf("\n--- Analisis semantico completado sin errores. ---\n");
+            generateIntermediateCode(raizAST);
+            printf("\n--- String Builder Buffer (TAC) ---\n%s", getBuiltString());
+        }
     }
 
     if (argc > 1 && yyin) {
         fclose(yyin);
     }
-    return 0;
+    return exit_code;
 }
 #endif

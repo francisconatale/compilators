@@ -2,7 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "ast.h"
 #include "bison.tab.h"
+#include "error_handler.h"
 
 int yywrap(void) {
     return 1;
@@ -63,7 +65,7 @@ FLOAT       {DIGIT}+"."{DIGIT}+
 "/*"([^*]|\*+[^*/])*\*+"/"      { /* comentario multilinea */ }
 
     /* ERRORES LEXICOS */
-.                               { printf("[Linea %d] ERROR LEXICO: simbolo no permitido '%s'\n", yylineno, yytext); }
+.                               { lexicalError(yylineno, "simbolo no permitido '%s'", yytext); }
 
 %%
 
