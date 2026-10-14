@@ -1,7 +1,9 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "ast.h"
 #include "symbol_table.h"
+#include "string_builder.h"
 
 Symbol *newSymbol(const char *id, SymbolType symbolType, DataType type, NodeAST *parameters) {
     Symbol *symbol = malloc(sizeof(Symbol));
@@ -83,7 +85,6 @@ void analyzeWhileNode(NodeAST *node, Scope *current_scope);
 
 #include "error_handler.h"
 
-// Variable de contexto: guarda la funcion que se esta analizando actualmente
 static Symbol *current_function = NULL;
 
 // verifica que una variable no sea definida dos veces en un mismo scope
@@ -107,7 +108,7 @@ void analyzeMethodNode(NodeAST *node, Scope *current_scope, DataType type) {
             semanticError(node->line, "El metodo '%s' ya fue declarado previamente en este ambito.", node->symbol->id);
         } else {
             appendSymbol(current_scope, node->symbol);
-            buildString(node->symbol->id + ":");
+            buildStringf("%s :\n", node->symbol->id);
         }
     }
 
@@ -535,5 +536,3 @@ void checkMainMethodExists(Scope *globalScope) {
         semanticError(0, "El metodo 'main' no debe tener parametros.");
     }
 }
-
-#include "string_builder.h"
