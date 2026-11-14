@@ -410,6 +410,34 @@ main:
 .section .note.GNU-stack,"",@progbits   # ⑮ la pila no necesita ser ejecutable
 ```
 
+**En palabras, sin nombrar ninguna instrucción:**
+
+1. **Primero va la sección de datos.** Ahí se reserva espacio para cada variable
+   global: tantos bytes como pida su tipo —acá 4 por cada entero— y con un valor
+   inicial, que en C-TDS es siempre cero, porque el lenguaje no permite
+   inicializar en la declaración. Cada global queda además **publicada con su
+   nombre**, para que el enlazador pueda encontrarla desde cualquier parte.
+2. **Después empieza la sección de código.** Cada método se anuncia con su
+   nombre, se lo marca como función —dato para el enlazador y los depuradores— y
+   se lo hace visible desde afuera del archivo.
+3. **Al entrar a la función se arma su marco.** Se guarda el punto de referencia
+   del marco de quien llamó, para poder devolvérselo intacto al salir, y se
+   establece uno nuevo apuntando al tope actual de la pila. De ahí en adelante,
+   **toda variable de esta función se nombra como "tantos bytes más abajo de ese
+   punto"**.
+4. **Enseguida se baja el tope de la pila**, de una sola vez, tantos bytes como
+   necesite la función entera: acá 16, porque hay tres enteros locales (12 bytes)
+   redondeados al múltiplo de 16 que la convención exige. **Ese único movimiento
+   es toda la reserva de las variables locales**, y por eso las tres
+   declaraciones del programa no producen ninguna instrucción propia.
+5. **El cuerpo está vacío**, así que lo único que queda es ir a la salida. La
+   salida es un punto único al que van a parar todos los retornos de la función.
+6. **En la salida**, como se trata de `main` y no devuelve nada, se deja en cero
+   el lugar donde el sistema operativo va a leer el código de salida del proceso.
+   Después se deshace el marco —el tope de la pila vuelve a donde estaba y se
+   restaura el punto de referencia del llamador— y se devuelve el control a quien
+   llamó.
+
 Por qué cada una, en este ejemplo:
 
 - **①–⑤ Las tres globales.** `.long 0` reserva 4 bytes puestos en cero: C-TDS no
@@ -680,6 +708,27 @@ saludo:
     ret
 ```
 
+**En palabras, sin nombrar ninguna instrucción:**
+
+1. **No hay sección de datos**: el programa no tiene globales, así que arranca
+   directo con el código.
+2. **`suma` arma su marco y reserva 16 bytes**: necesita tres lugares de 4 —los
+   dos parámetros y el resultado intermedio de la suma— que son 12, redondeados
+   al múltiplo de 16.
+3. **Lo primero que hace es copiar los parámetros a su propio marco.** El
+   llamador los dejó en registros que la convención fija de antemano: el primer
+   argumento en uno, el segundo en otro. Copiarlos a la pila apenas entrar es lo
+   que permite tratarlos como variables comunes durante el resto de la función, y
+   lo que los protege de que una llamada interna pise esos registros.
+4. **La suma se resuelve trayendo los dos valores a registros de trabajo**,
+   operando, y devolviendo el resultado a su lugar en la pila.
+5. **Para retornar**, el valor se lleva al registro que la convención reserva
+   para resultados y se va a la salida.
+6. **`saludo` es el caso degenerado**: no tiene parámetros, ni locales, ni
+   resultados intermedios, así que **no hace falta bajar el tope de la pila**.
+   Arma el marco, va a la salida y vuelve. Es la prueba de que el tamaño del
+   marco se calcula, no es fijo.
+
 Lo que hay que poder justificar de este bloque:
 
 - **`movl %edi, -4(%rbp)` y `movl %esi, -8(%rbp)`.** La ABI System V AMD64 manda
@@ -904,6 +953,21 @@ main:
     leave
     ret
 ```
+
+**En palabras, sin nombrar ninguna instrucción:**
+
+1. **Sin globales, no hay sección de datos.**
+2. **El marco reserva 16 bytes** para dos lugares de 4: el entero y el booleano.
+3. **Las dos asignaciones son de constantes**, así que el valor **viaja dentro de
+   la propia instrucción** y no hay que ir a buscarlo a ninguna parte de la
+   memoria. Se lleva a un registro de trabajo y de ahí al lugar de la variable.
+4. **El booleano ocupa los mismos 4 bytes que el entero** y se guarda como un 1.
+   Esa uniformidad —todo mide lo mismo— es lo que evita cualquier cuenta de
+   relleno al armar el marco.
+5. **Las dos declaraciones no generan nada**: su espacio ya quedó reservado en el
+   único movimiento del tope de la pila.
+6. **La salida**, como siempre: cero para el sistema operativo porque es `main` y
+   es `void`, deshacer el marco y volver.
 
 - **El `$` marca un inmediato**: `movl $7, %eax` pone el número 7 en el registro;
   `movl 7, %eax` leería la dirección de memoria 7. Confundirlos es un clásico.
@@ -1130,6 +1194,27 @@ main:
     movl %eax, -4(%rbp)    #            guardar en x
     jmp .L_main_epilogue
 ```
+
+**En palabras, sin nombrar ninguna instrucción:**
+
+1. **El marco reserva 16 bytes** para tres lugares: la variable y **los dos
+   resultados intermedios**. Conviene insistir en esto: cada operación intermedia
+   ocupa un lugar en la pila igual que una variable declarada. No son "registros
+   virtuales", son memoria.
+2. **La multiplicación se resuelve primero**, porque es la que quedó más abajo en
+   el árbol. Sus dos operandos son constantes, así que viajan dentro de las
+   instrucciones; se multiplican en registros de trabajo y **el resultado se
+   guarda en su lugar de la pila**.
+3. **La suma viene después y tiene que volver a leer de la pila** el resultado de
+   la multiplicación, aunque se acabe de calcular hace una instrucción. Ésa es la
+   decisión de diseño que atraviesa todo el generador: **ningún valor se queda en
+   un registro entre dos operaciones**. Cuesta instrucciones y a cambio permite
+   traducir cada operación mirando solo a sí misma.
+4. **Recién al final el resultado se copia al lugar de la variable.**
+5. **Si hubiera una división**, el procesador exige una preparación extra: el
+   dividendo se toma repartido en dos registros, así que antes hay que propagarle
+   el signo. Sin eso, dividir un número negativo da un resultado arbitrario. Y el
+   divisor no puede estar en el registro que esa preparación sobrescribe.
 
 - **Toda operación binaria sigue el mismo esquema de cuatro pasos**: cargar el
   primer operando a `%eax`, cargar el segundo a `%edx`, operar, guardar el
@@ -1367,6 +1452,27 @@ main:
     movl %eax, -8(%rbp)
     jmp .L_main_epilogue
 ```
+
+**En palabras, sin nombrar ninguna instrucción:**
+
+1. **El marco reserva 32 bytes**, no 16, porque hacen falta cinco lugares: dos
+   variables y **tres resultados intermedios**. Las expresiones chicas gastan
+   marco rápido: cada operación pide su lugar.
+2. **La negación aritmética es directa**: se trae el valor a un registro, el
+   procesador tiene una operación nativa que invierte el signo, y el resultado
+   vuelve a la pila.
+3. **La comparación es más larga.** Se traen los dos valores y se comparan, lo
+   que **no deja un número sino un juego de banderas** en el procesador. Después
+   hay que preguntar por esas banderas para obtener un 1 o un 0.
+4. **Esa respuesta se escribe en un espacio de un solo byte**, así que hay que
+   **extenderla a los 4 bytes completos rellenando con ceros** antes de
+   guardarla. Si no, el booleano arrastraría lo que hubiera antes en la parte
+   alta del registro, y cualquier pregunta posterior sobre él daría cualquier
+   cosa.
+5. **La negación lógica aprovecha que un booleano vale exactamente 0 o 1**:
+   invertir el bit más bajo alcanza, y es **una** operación en vez de las tres que
+   costaría comparar contra cero y volver a construir el booleano. Es rápido
+   *porque* el paso 4 garantiza que no haya basura arriba.
 
 Lo que hay que poder justificar:
 
@@ -1614,6 +1720,26 @@ main:
     jmp .L_main_epilogue
 ```
 
+**En palabras, sin nombrar ninguna instrucción:**
+
+1. **`f` no baja el tope de la pila**: su cuerpo es devolver una constante, no
+   necesita ningún lugar propio.
+2. **`main` reserva 16 bytes** para cuatro lugares: la variable y tres
+   intermedios.
+3. **La comparación se resuelve y se guarda**, y después **se copia a otro
+   lugar**: el que va a contener el resultado de la expresión entera. Esa copia
+   parece de más, pero es la que hace que el resultado tenga un valor válido
+   aunque se tome el atajo.
+4. **Acá está el corto circuito.** Se trae ese resultado provisorio, se pregunta
+   si es falso, y **si lo es se salta por encima de la llamada**. La llamada no se
+   ejecuta: no es que se ejecute y se descarte el valor.
+5. **Si no se saltó**, se llama a la función; **el resultado vuelve en el registro
+   que la convención reserva para eso**, se guarda, y pisa el resultado
+   provisorio.
+6. **Los dos caminos se juntan en el punto de reunión**, y recién ahí el valor se
+   copia a la variable. Desde afuera, la expresión entera se comportó como una
+   sola cosa.
+
 - **`je .L0` es el corto circuito ejecutándose.** Si la comparación dio falso, el
   `call f` **no se ejecuta nunca**. Eso es exactamente lo que la letra exige, y se
   ve en el assembly.
@@ -1822,6 +1948,24 @@ main:
     leave
     ret
 ```
+
+**En palabras, sin nombrar ninguna instrucción:**
+
+1. **La sección de datos reserva los 4 bytes de la global**, con su nombre
+   publicado y un cero adentro.
+2. **El marco reserva 16 bytes** aunque solo haga falta uno de 4: la convención
+   exige que el tope de la pila quede alineado a 16.
+3. **La primera asignación guarda una constante en un lugar del marco**,
+   identificado por su **distancia** al punto de referencia. Ese lugar **existe
+   solo mientras la función esté activa**: al salir, el tope de la pila vuelve
+   atrás y el espacio se reutiliza para lo que venga.
+4. **La segunda lee de ese lugar y escribe en la variable global**, que no está
+   en el marco sino en el segmento de datos, y que se nombra **por su nombre**, no
+   por una distancia.
+5. **La dirección de la global se calcula relativa a dónde se está ejecutando**,
+   no como un número absoluto. Eso es lo que permite que el sistema operativo
+   cargue el programa en cualquier parte de la memoria sin tener que corregir
+   nada.
 
 **La diferencia entre las dos asignaciones está en la última instrucción de cada
 una, y es la pregunta que puede caer:**
@@ -2066,6 +2210,32 @@ main:
     call nada              # call nada, 0 : sin argumentos y sin resultado
     jmp .L_main_epilogue
 ```
+
+**En palabras, sin nombrar ninguna instrucción:**
+
+1. **`doble` copia su parámetro** del registro donde se lo dejó el llamador a un
+   lugar de su propio marco, calcula, y deja el resultado en el registro que la
+   convención reserva para los retornos.
+2. **`nada` no reserva nada**: ni parámetros, ni locales, ni intermedios.
+3. **En `main` pasa lo interesante: el argumento no se carga directo en el
+   registro que la convención pide.** Primero se guarda en un lugar del marco
+   reservado justamente para argumentos en preparación, y recién **justo antes de
+   llamar** se lleva al registro.
+4. **Por qué ese rodeo.** Evaluar un argumento puede implicar otra llamada, que
+   usaría los mismos registros y pisaría lo ya preparado. Guardando primero y
+   cargando al final, las llamadas anidadas funcionan sin ningún caso especial.
+5. **Llamar hace dos cosas a la vez**: deja en la pila la dirección a la que hay
+   que volver, y salta. Por eso, dentro de la función llamada, el punto de
+   referencia del marco tiene justo arriba la dirección de retorno, y más arriba
+   todavía los argumentos que hayan venido por pila.
+6. **Al volver, el resultado está esperando en el registro acordado**: se guarda
+   en el lugar del intermedio y después se copia a la variable.
+7. **La segunda llamada no tiene nada alrededor**: sin argumentos no hay
+   registros que preparar, y sin resultado no hay nada que leer al volver.
+8. **Si hubiera más de seis argumentos**, los que sobran se apilan, **en orden
+   inverso**, y si la cantidad apilada queda impar hay que correr el tope de la
+   pila 8 bytes más antes de llamar, porque la convención exige que esté alineado
+   a 16 en el momento del salto.
 
 Lo que hay que poder explicar de este bloque:
 
@@ -2334,6 +2504,24 @@ signo:
     ret
 ```
 
+**En palabras, sin nombrar ninguna instrucción:**
+
+1. **`signo` reserva 16 bytes**: el parámetro y el resultado de la comparación.
+2. **La condición se calcula a un lugar de la pila**, se vuelve a leer y se
+   pregunta si es falsa, para decidir a qué rama ir.
+3. **Cada rama hace lo mismo**: deja su valor en el registro de retorno y **se va
+   al punto de salida**, que es uno solo para toda la función.
+4. **Ahí está la decisión de diseño.** En vez de repetir el desarmado del marco en
+   cada retorno, hay **un único lugar de salida** y todos los retornos van ahí. Con
+   dos retornos ya se ahorra código, y sobre todo se vuelve imposible que las
+   copias se desincronicen si mañana cambia el desarmado.
+5. **El salto que saltea la rama falsa queda emitido aunque nunca se alcance**: la
+   rama verdadera ya se fue a la salida. El generador emite el esquema del
+   condicional siempre igual, y darse cuenta de que ese salto es inútil es trabajo
+   del optimizador, no suyo.
+6. **El punto de salida** devuelve el tope de la pila a su lugar, restaura el
+   marco del llamador y devuelve el control.
+
 - **Los dos `return` se volvieron `jmp .L_signo_epilogue`.** El valor se deja en
   `%eax` —el registro de retorno que define la ABI— y el desarmado del marco se
   escribe **una sola vez**. Con dos `return` ya se nota: sin el epílogo común
@@ -2596,6 +2784,26 @@ main:
     jmp .L_main_epilogue
 ```
 
+**En palabras, sin nombrar ninguna instrucción:**
+
+1. **El marco reserva 16 bytes**: la variable y los dos resultados de condición.
+   Cada condición del programa ocupa su propio lugar en la pila.
+2. **Cada condición sigue el mismo recorrido**: traer los dos valores, compararlos
+   —lo que deja banderas, no un número—, convertir esas banderas en un 1 o un 0,
+   extenderlo a 4 bytes, guardarlo, volver a leerlo y preguntar si es cero para
+   decidir el salto.
+3. **Son seis pasos para algo que el procesador podría hacer en dos.** Es el
+   precio de que el código intermedio separe "calcular la comparación" de "saltar
+   según el resultado", y de que nada viva en registros entre operaciones. Con la
+   optimización de mirilla activada, los pasos del medio se funden y queda la
+   comparación seguida directamente del salto.
+4. **El condicional sin `else` salta hacia adelante una sola vez**: si la
+   condición no se cumple, se saltea el cuerpo y listo.
+5. **El condicional con `else` necesita dos saltos.** El primero manda a la rama
+   falsa cuando la condición no se cumple. El segundo, **al final de la rama
+   verdadera, saltea la rama falsa**: sin él, el flujo seguiría derecho y se
+   ejecutarían las dos ramas una detrás de la otra. Es el salto que más se olvida.
+
 - **Cada etiqueta del TAC se vuelve una etiqueta del assembly con un punto
   adelante** (`L0` → `.L0`): eso la marca como **local al archivo** y evita que
   entre en la tabla de símbolos del objeto.
@@ -2807,6 +3015,24 @@ main:
 .L1:
     jmp .L_main_epilogue
 ```
+
+**En palabras, sin nombrar ninguna instrucción:**
+
+1. **El marco reserva 16 bytes**: la variable y dos intermedios.
+2. **El punto al que se vuelve está antes de la condición**, no después. Ésa es
+   toda la diferencia con un condicional, y es lo que hace que **la condición se
+   reevalúe en cada vuelta**.
+3. **En cada iteración la variable se vuelve a leer de memoria.** Es obligatorio
+   con este diseño —nada vive en registros entre operaciones— y además es correcto,
+   porque el cuerpo la modifica. Un compilador optimizador la mantendría en un
+   registro durante todo el ciclo y leería memoria una sola vez.
+4. **Al final del cuerpo hay un salto hacia atrás, incondicional.** Eso es
+   exactamente lo que convierte el esquema de un condicional en un ciclo.
+5. **Los lugares de los intermedios se reutilizan en cada vuelta**: hay **uno**
+   para el resultado de la condición, no uno por iteración. El marco se dimensiona
+   una sola vez, antes de entrar, y **no crece aunque el ciclo itere un millón de
+   veces**. Es la diferencia entre la pila, que es estática en tamaño, y lo que
+   haría una implementación que reservara en cada vuelta.
 
 - **`.L0` está antes de la carga de `x`**, así que `x` se **relee de memoria en
   cada iteración**. Es correcto —el cuerpo la modifica— y además es obligatorio
@@ -3037,6 +3263,26 @@ main:
     leave
     ret
 ```
+
+**En palabras, sin nombrar ninguna instrucción:**
+
+1. **La global queda reservada en el segmento de datos**, con su nombre y su
+   cero, aunque el programa **no la use nunca**: se declaró, y declararla es
+   reservarla.
+2. **El marco reserva 16 bytes para dos lugares**, uno por cada variable local,
+   **aunque las dos se llamen igual**. El generador no las confunde porque las
+   busca por su nombre calificado, que es distinto para cada una.
+3. **Los dos lugares coexisten durante toda la función**, aunque la del bloque
+   interno conceptualmente solo exista entre sus llaves. **El espacio no se
+   reutiliza al salir de un bloque**: el marco se dimensiona una vez, con todas
+   las variables de la función juntas. Es más simple y desperdicia unos bytes que
+   a nadie le importan.
+4. **Cada asignación escribe en su propio lugar**, a distinta distancia del punto
+   de referencia del marco.
+5. **Si `main` no declarara su propia variable**, esa misma asignación terminaría
+   escribiendo en el segmento de datos, en la global, nombrándola por su nombre en
+   vez de por una distancia. Cambiar una línea de declaración cambia a dónde va a
+   parar el dato.
 
 - **Las dos locales tienen ranuras distintas (`-4` y `-8`)** aunque se llamen
   igual, porque el generador las busca por el nombre calificado, que es distinto.
