@@ -1,4 +1,5 @@
 #include "unity.h"
+#include "ast.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -8,12 +9,17 @@ typedef struct yy_buffer_state *YY_BUFFER_STATE;
 extern YY_BUFFER_STATE yy_scan_string(const char * str);
 extern void yy_delete_buffer(YY_BUFFER_STATE buffer);
 extern int yylineno;
+extern NodeAST *astRoot;
 
 // Configuración de Unity
 void setUp(void) {
     yylineno = 1; // cada test arranca a contar líneas desde 1
+    astRoot = NULL;
 }
-void tearDown(void) {}
+void tearDown(void) {
+    freeAST(astRoot);
+    astRoot = NULL;
+}
 
 // Programa mínimo válido
 void test_parser_programa_minimo_valido(void) {
@@ -143,6 +149,8 @@ void test_bloques(void) {
     accepts("void main(){ { int x; x = 1; } }");
     accepts("void main(){ int x; { int x; } }");
     accepts("void main(){ int a; float b; boolean c; a = 1; b = 2.0; }");
+    accepts("void main(){ int a, b, c; float x, y; a = 1; }"); // una declaración puede listar varios identificadores
+    accepts("void main(){ { int a, b; } }");
 }
 
 // if, if-else y while, simples y anidados
@@ -233,6 +241,15 @@ void test_error_declaraciones(void) {
     rejects("f();");
     rejects("{ }");
     rejects("int f(){} ;");  // ';' suelto a nivel global
+}
+
+// Los métodos solo se declaran a nivel global: un bloque admite variables y sentencias
+void test_error_metodo_dentro_de_bloque(void) {
+    rejects("void main(){ void f(){} }");
+    rejects("void main(){ int f(){ return 1; } }");
+    rejects("int f(){ int g(int a){ return a; } return 1; }");
+    rejects("void main(){ { float f(){ return 1.5; } } }");
+    rejects("void main(){ int x; void f(){} }");
 }
 
 // Dentro de un bloque las declaraciones van antes que las sentencias
@@ -328,6 +345,7 @@ int main(void) {
     RUN_TEST(test_error_if_while_mal_formados);
     RUN_TEST(test_error_declaraciones);
     RUN_TEST(test_error_declaracion_despues_de_sentencia_en_bloque);
+    RUN_TEST(test_error_metodo_dentro_de_bloque);
     RUN_TEST(test_error_firmas_de_metodo);
     RUN_TEST(test_error_sentencias_invalidas);
     RUN_TEST(test_error_expresiones_invalidas);

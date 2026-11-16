@@ -1,0 +1,117 @@
+site_name: C-TDS Compiler
+site_description: Compilador para C-TDS (TDS26) desarrollado en C con Flex y Bison
+site_url: ""
+repo_url: https://github.com/julivarea/compiler
+repo_name: julivarea/compiler
+docs_dir: docs
+edit_uri: edit/main/docs/
+exclude_docs: |
+  convenciones/
+  historicos/
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/julivarea/compiler
+
+theme:
+  name: material
+  language: es
+  palette:
+    # Modo claro
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Cambiar a modo oscuro
+    # Modo oscuro
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Cambiar a modo claro
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.action.edit
+    - content.action.view
+    - content.code.copy
+    - content.code.annotate
+
+nav:
+  - Inicio: index.md
+  - Wiki:
+      - Índice: wiki/index.md
+      - 1. Introducción:
+          - 1.1 Primeros Pasos: wiki/01-introduccion/01-primeros-pasos.md
+          - 1.2 Visión General y Arquitectura: wiki/01-introduccion/02-vision-general.md
+      - 2. Infraestructura (core/):
+          - 2.1 Entrada y Línea de Comandos: wiki/02-infraestructura/01-cli-y-entrada.md
+          - 2.2 Orquestación (driver): wiki/02-infraestructura/02-driver.md
+          - 2.3 Errores y Salida de Debug: wiki/02-infraestructura/03-errores-y-debug.md
+          - 2.4 Utilidades y Tipos Base: wiki/02-infraestructura/04-utilidades-y-tipos.md
+      - 3. Léxico, Sintáctico y AST (parser/):
+          - 3.1 Análisis Léxico: wiki/03-lexico-sintactico-y-ast/01-analisis-lexico.md
+          - 3.2 Análisis Sintáctico: wiki/03-lexico-sintactico-y-ast/02-analisis-sintactico.md
+          - 3.3 Acciones del Parser: wiki/03-lexico-sintactico-y-ast/03-acciones-del-parser.md
+          - 3.4 Árbol de Sintaxis Abstracta (AST): wiki/03-lexico-sintactico-y-ast/04-ast.md
+      - 4. Análisis Semántico (semantic/):
+          - 4.1 Tabla de Símbolos y Ámbitos: wiki/04-semantico/01-tabla-de-simbolos.md
+          - 4.2 Chequeo de Tipos: wiki/04-semantico/02-chequeo-de-tipos.md
+          - 4.3 Análisis Semántico: wiki/04-semantico/03-analisis-semantico.md
+      - 5. Código Intermedio (intermediate_code/):
+          - 5.1 Representación Intermedia (TAC): wiki/05-codigo-intermedio/01-representacion-tac.md
+          - 5.2 Generación de Código Intermedio: wiki/05-codigo-intermedio/02-generacion-tac.md
+      - 6. Optimizador (optimizer/):
+          - 6.1 Análisis de Variables Vivas: wiki/06-optimizador/01-variables-vivas.md
+          - 6.2 Optimización del Código Intermedio: wiki/06-optimizador/02-optimizador.md
+      - 7. Código Objeto (object_code/):
+          - 7.1 Marco de Pila: wiki/07-codigo-objeto/01-marco-de-pila.md
+          - 7.2 Generación de Código Objeto: wiki/07-codigo-objeto/02-generacion-codigo-objeto.md
+  - Decisiones de Diseño:
+      - Alcance y Extensiones: decisiones/alcance-y-extensiones.md
+      - Cambios a Etapas Anteriores: decisiones/cambios-etapas-anteriores.md
+      - Desacoplamiento TAC y Stack Offsets (ADR 001): decisiones/adr-001-desacoplamiento-tac-offsets-stack.md
+      - Resolución O(1) de Variables Globales (ADR 002): decisiones/adr-002-resolucion-variables-globales-isglobal.md
+      - Fusión de Comparaciones y Saltos (ADR 003): decisiones/adr-003-fusion-comparacion-y-salto-condicional.md
+      - Ámbito Único de Método y Parámetros (ADR 004): decisiones/adr-004-ambito-metodo-y-parametros.md
+      - Conflicto Shift/Reduce en Bison: decisiones/explicacion_conflicto_bison.md
+      - Algoritmo de Sethi-Ullman: decisiones/algoritmo_sethi_ullman.md
+  - Problemas Conocidos: problemas-conocidos.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - footnotes
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search
