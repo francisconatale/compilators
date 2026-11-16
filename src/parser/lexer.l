@@ -33,6 +33,7 @@ FLOAT       {DIGIT}+"."{DIGIT}+
 "if"                            { return IF; }
 "else"                          { return ELSE; }
 "while"                         { return WHILE; }
+">="                            { return GE;    }
 "return"                        { return RETURN; }
 
     /* CONSTANTES y LITERALES */

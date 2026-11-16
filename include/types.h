@@ -48,6 +48,7 @@ typedef enum OperationType {
     OP_MOD,
     OP_LT,
     OP_GT,
+    OP_GE,
     OP_EQ,
     OP_AND,
     OP_OR

@@ -38,7 +38,7 @@ extern NodeAST *astRoot;
 
 %token VOID INT FLOAT BOOLEAN IF ELSE WHILE RETURN
 
-%token EQ AND OR NOT 
+%token EQ AND OR NOT GE
 
 %token <strval> ID
 %token <intval> NUMBER BOOL_CONST
@@ -47,7 +47,7 @@ extern NodeAST *astRoot;
 %left OR                /* disyunción lógica || */
 %left AND               /* conjunción lógica && */
 %left EQ                /* igualdad == */
-%left '<' '>'           /* relacionales (menor, mayor) */
+%left '<' '>' GE          /* relacionales (menor, mayor) */
 %left '+' '-'           /* suma y resta */
 %left '*' '/' '%'       /* multiplicación, división, resto */
 %precedence NOT UMINUS  /* negación lógica ! y menos unario */
@@ -152,6 +152,7 @@ Expression
     | NOT Expression                            { $$ = newOperatorNode(OP_NOT, $2, NULL); }
     | '(' Expression ')'                        { $$ = $2; }
     | Expression '+' Expression                 { $$ = newOperatorNode(OP_ADD, $1, $3); }
+    | Expression GE Expression                  { $$ = newOperatorNode(OP_NOT, newOperatorNode(OP_LT, $1, $3), NULL);}
     | Expression '-' Expression                 { $$ = newOperatorNode(OP_SUB, $1, $3); }
     | Expression '*' Expression                 { $$ = newOperatorNode(OP_MUL, $1, $3); }
     | Expression '/' Expression                 { $$ = newOperatorNode(OP_DIV, $1, $3); }
